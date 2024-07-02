@@ -1,0 +1,18 @@
+package com.monthlyib.server.event;
+
+import com.monthlyib.server.domain.user.entity.User;
+import lombok.Getter;
+import org.springframework.context.ApplicationEvent;
+
+
+@Getter
+public class UserVerificationEvent extends ApplicationEvent {
+
+    private String email;
+
+    public UserVerificationEvent(Object source, String email) {
+        super(source);
+        this.email = email;
+    }
+
+}

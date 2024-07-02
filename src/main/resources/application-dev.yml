@@ -1,0 +1,93 @@
+server:
+  port: 8987
+spring:
+  datasource:
+    url: ${MAIN_DEV_DB_URL}
+    username: ${MAIN_DEV_DB_ID}
+    password: ${MAIN_DEV_DB_PW}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 24
+      connection-timeout: 30000
+      validation-timeout: 2000
+      idle-timeout: 60000
+      max-lifetime: 1800000
+  jpa:
+    open-in-view: false
+    defer-datasource-initialization: true
+    hibernate:
+      ddl-auto: create
+    #    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        default_batch_fetch_size: 1000
+  sql:
+    init:
+      mode: always
+  cache:
+    type: redis
+  data:
+    redis:
+      host: localhost
+      port: 16379
+logging.level:
+  org.hibernate.SQL: trace
+  org:
+    hibernate:
+      type:
+        descriptor:
+          sql:
+            org.hibernate.type.descriptor.sql.BasicBinder : trace
+    springframework:
+      web.servlet : trace
+mail:
+  smtp:
+    host: smtp.gmail.com
+    port: 587
+    username: ${EMAIL_USERNAME}
+    password: ${EMAIL_PASSWORD}
+    auth: true
+    starttls:
+      enable: true
+  subject:
+    user:
+      registration: Thank you for joining our service!
+      verification: Please complete verification. Thank you!
+  template:
+    name:
+      user:
+        join: email-registration-member
+cloud:
+  aws:
+    s3:
+      bucket: monthlyib
+      dir: /monthlyib-file
+    region:
+      static: ap-northeast-2
+    stack:
+      auto: false
+springdoc:
+  swagger-ui:
+    path: /docs
+    groups-order: DESC
+    operationsSorter: method
+    disable-swagger-default-url: true
+    display-request-duration: true
+    tags-sorter: alpha
+  api-docs:
+    path: /api-docs
+  show-actuator: true
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+  paths-to-match:
+    - /api/**
+    - /open-api/**
+  show-login-endpoint: false
+
+oauth:
+  naver:
+    url:
+      auth: https://nid.naver.com
+      api: https://openapi.naver.com
+    secret: ${NAVER_SECRET_KEY}
