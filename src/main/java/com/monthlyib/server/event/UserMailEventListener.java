@@ -100,6 +100,21 @@ public class UserMailEventListener {
         }
     }
 
+    @Async
+    @EventListener
+    public void sendUserEmail(UserSendEmailEvent event) throws Exception {
+        try {
+            String[] to = new String[]{event.getEmail()};
+            String message = event.getEmail() + "님, 안녕하세요!\n"+event.getContent();
+            log.info(to[0]);
+            log.info(message);
+            emailSender.sendEmail(to, registrationSubject, message, registrationTemplateName);
+        } catch (MailSendException e) {
+            e.printStackTrace();
+            log.error("MailSendException: Rollback for User sendUserEmail:");
+        }
+    }
+
     private static String numberGen(int len, int dupCd ) {
 
         Random rand = new Random();
