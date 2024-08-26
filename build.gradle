@@ -68,6 +68,9 @@ dependencies {
 	// https://mvnrepository.com/artifact/com.amazonaws/aws-java-sdk
 	implementation 'com.amazonaws:aws-java-sdk:1.12.714'
 
+	// https://mvnrepository.com/artifact/org.apache.clerezza.ext/org.json.simple
+	implementation 'org.apache.clerezza.ext:org.json.simple:0.4'
+
 }
 
 tasks.named('test') {

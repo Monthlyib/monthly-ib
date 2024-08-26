@@ -103,7 +103,6 @@ public interface UserOpenApiControllerIfs {
     );
 
     // 회원 가입 이메일 인증 번호 발송 요청
-
     @Operation(summary = "메일 인증번호 요청", description = "200 OK 응답 확인, 회원 가입시 메일 인증번호 요청")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "정상 응답", content = {

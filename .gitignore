@@ -35,10 +35,11 @@ out/
 
 ### VS Code ###
 .vscode/
-
 src/main/resources/env.yml
+.env
 
+src/main/resources/static/docs/**
 
 /src/main/generated
 
-.DS_Store
+/logs

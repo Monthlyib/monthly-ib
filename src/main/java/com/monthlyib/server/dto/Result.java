@@ -39,4 +39,11 @@ public class Result {
                 .message("Error")
                 .build();
     }
+
+    public static Result error(String message) {
+        return Result.builder()
+                .status(0)
+                .message(message)
+                .build();
+    }
 }
