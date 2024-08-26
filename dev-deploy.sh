@@ -11,9 +11,9 @@ cd $BUILD || { echo "Failed to change directory to $BUILD"; exit 1; }
 mkdir -p $LOG_PATH
 
 git fetch --all
-git reset --hard origin/main
-git checkout main
-git pull origin main
+git reset --hard origin/dev
+git checkout dev
+git pull origin dev
 
 chmod 700 gradlew
 sudo chmod -R 755 .
