@@ -43,7 +43,6 @@ if [ "$(sudo docker ps -q -f name=CERBOT_CONTAINER_NAME)" ]; then
     sudo docker rm CERBOT_CONTAINER_NAME
 fi
 
-echo "> Dev DEPLOY_JAR 배포" >> $LOG_PATH/deploy.log
 
 # Docker Compose 빌드
 sudo docker-compose build
