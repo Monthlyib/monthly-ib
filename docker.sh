@@ -1,35 +1,5 @@
 #!/bin/bash
 
-BUILD=/home/ubuntu/monthly-ib
-DEV_JAR=server-0.0.1.jar
-LOG_PATH=/home/ubuntu/monthly-ib
-DEPLOY_PATH=/home/ubuntu/monthly-ib
-
-cd $BUILD || { echo "Failed to change directory to $BUILD"; exit 1; }
-
-# 스크립트 로그 파일이 없다면 생성
-mkdir -p $LOG_PATH
-
-git fetch --all
-git reset --hard origin/dev
-git checkout dev
-git pull origin dev
-
-chmod 700 gradlew
-sudo chmod -R 755 .
-
-
-./gradlew clean build
-
-BUILD_JAR=$(ls $BUILD/build/libs/server-0.0.1.jar)
-
-echo "> 현재 시간: $(date)" >> $LOG_PATH/deploy.log
-echo "> dev build 파일명: $DEV_JAR" >> $LOG_PATH/deploy.log
-echo "> dev build 파일 복사" >> $LOG_PATH/deploy.log
-
-EXIST_FILE=$DEPLOY_PATH/$DEV_JAR
-sudo rm -f $EXIST_FILE
-sudo cp $BUILD_JAR $EXIST_FILE
 
 OLD_IMAGES_NAME=monthly-ib_app
 
