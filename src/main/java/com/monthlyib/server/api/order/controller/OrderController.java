@@ -102,13 +102,14 @@ public class OrderController {
 
             Reader reader = new InputStreamReader(responseStream, StandardCharsets.UTF_8);
             ObjectMapper objectMapper = new ObjectMapper();
-            responseStream.close();
             if (isSuccess) {
                 OrderDto orderDto = objectMapper.readValue(reader, OrderDto.class);
                 OrderResponseDto response = ibOrderService.createIbOrder(orderDto, user.getUserId(), requestDto.getSubscribeId());
+                responseStream.close();
                 return ResponseEntity.status(code).body(ResponseDto.of(response, Result.ok()));
             } else {
                 OrderErrorDto orderErrorDto = objectMapper.readValue(reader, OrderErrorDto.class);
+                responseStream.close();
                 return ResponseEntity.status(code).body(ResponseDto.of(null, Result.error(orderErrorDto.getMessage())));
             }
         } catch (Exception e) {
