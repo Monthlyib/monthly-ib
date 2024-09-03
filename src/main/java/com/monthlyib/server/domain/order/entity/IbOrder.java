@@ -92,10 +92,14 @@ public class IbOrder extends Auditable {
     private int taxFreeAmount;
     
     public static IbOrder create(OrderDto orderDto, Long userId, Long subscribeId) {
+        String id = orderDto.getMId();
+        if (id == null) {
+            id = "";
+        }
         return IbOrder.builder()
                 .userId(userId)
                 .subscribeId(subscribeId)
-                .mId(orderDto.getMId())
+                .mId(id)
                 .version(orderDto.getVersion())
                 .paymentKey(orderDto.getPaymentKey())
                 .status(orderDto.getStatus())

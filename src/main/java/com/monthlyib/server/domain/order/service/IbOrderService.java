@@ -1,6 +1,7 @@
 package com.monthlyib.server.domain.order.service;
 
 
+import com.monthlyib.server.api.subscribe.dto.SubscribeUserResponseDto;
 import com.monthlyib.server.domain.order.dto.OrderDto;
 import com.monthlyib.server.domain.order.dto.OrderResponseDto;
 import com.monthlyib.server.domain.order.entity.IbOrder;
@@ -27,6 +28,7 @@ public class IbOrderService {
     public OrderResponseDto createIbOrder(OrderDto orderDto, Long userId, Long subscribeId) {
         IbOrder ibOrder = IbOrder.create(orderDto, userId, subscribeId);
         IbOrder saveOrder = ibOrderJpaRepository.save(ibOrder);
+        SubscribeUserResponseDto subscribeUser = subscribeService.createSubscribeUser(subscribeId, null, userId);
         return OrderResponseDto.of(saveOrder);
     }
 
