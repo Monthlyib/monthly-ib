@@ -40,6 +40,13 @@ public class SubscribeApiController implements SubscribeApiControllerIfs{
     }
 
     @Override
+    @GetMapping("/api/subscribe/active/{userId}")
+    public ResponseEntity<ResponseDto<SubscribeUserResponseDto>> getActiveSubscribeUser(Long userId, User user) {
+        SubscribeUserResponseDto subscribeUserResponseDto = subscribeService.verifyActiveSubUser(userId);
+        return ResponseEntity.ok(ResponseDto.of(subscribeUserResponseDto, Result.ok()));
+    }
+
+    @Override
     @PostMapping("/api/subscribe")
     public ResponseEntity<ResponseDto<?>> postSubscribe(SubscribePostDto requestDto, User user) {
         SubscribeResponseDto response = subscribeService.createSubscribe(requestDto, user);

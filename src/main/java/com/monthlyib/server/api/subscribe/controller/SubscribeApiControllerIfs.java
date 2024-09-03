@@ -73,6 +73,22 @@ public interface SubscribeApiControllerIfs {
             @UserSession @Parameter(hidden = true) User user
     );
 
+    @Operation(summary = "현재 활성화 상태 구독 조회(개인)", description = "사용자의 현재 활성화 되어있는 구독 상품 조회, 활성화 상태 데이터 없으면 null, 있으면 단건 응답")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "정상 응답",
+                    content = {@Content(mediaType = "application/json"
+                            ,schema = @Schema(implementation = SubscribeUserPageResponse.class)
+                    )}),
+            @ApiResponse(responseCode = "400", description = "BAD REQUEST",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL SERVER ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+    })
+    ResponseEntity<ResponseDto<SubscribeUserResponseDto>> getActiveSubscribeUser(
+            @PathVariable @Parameter(description = "User 식별자", required = true) Long userId,
+            @UserSession @Parameter(hidden = true) User user
+    );
+
     @Operation(summary = "구독 상품 생성(관리자)", description = "구독 상품 생성 요청")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "정상 응답",

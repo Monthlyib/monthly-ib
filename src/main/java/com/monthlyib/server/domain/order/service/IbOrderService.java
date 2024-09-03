@@ -28,7 +28,7 @@ public class IbOrderService {
     public OrderResponseDto createIbOrder(OrderDto orderDto, Long userId, Long subscribeId) {
         IbOrder ibOrder = IbOrder.create(orderDto, userId, subscribeId);
         IbOrder saveOrder = ibOrderJpaRepository.save(ibOrder);
-        SubscribeUserResponseDto subscribeUser = subscribeService.createSubscribeUser(subscribeId, null, userId);
+        SubscribeUserResponseDto subscribeUser = subscribeService.createSubscribeUserByOrderConfirm(subscribeId, userId);
         return OrderResponseDto.of(saveOrder);
     }
 

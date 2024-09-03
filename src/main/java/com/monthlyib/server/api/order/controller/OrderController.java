@@ -9,6 +9,7 @@ import com.monthlyib.server.domain.order.dto.OrderDto;
 import com.monthlyib.server.domain.order.dto.OrderErrorDto;
 import com.monthlyib.server.domain.order.dto.OrderResponseDto;
 import com.monthlyib.server.domain.order.service.IbOrderService;
+import com.monthlyib.server.domain.subscribe.service.SubscribeService;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.dto.PageResponseDto;
 import com.monthlyib.server.dto.ResponseDto;
@@ -47,6 +48,8 @@ public class OrderController {
 
     private final IbOrderService ibOrderService;
 
+    private final SubscribeService subscribeService;
+
     @Value("${TOSS_SECRET_KEY}")
     private String KEY;
 
@@ -61,7 +64,7 @@ public class OrderController {
             @RequestBody OrderRequestDto requestDto,
             @Parameter(hidden = true) @UserSession User user
             ) {
-
+        subscribeService.verifyActiveSubUserThrowError(user.getUserId());
         String orderId;
         String amount;
         String paymentKey;

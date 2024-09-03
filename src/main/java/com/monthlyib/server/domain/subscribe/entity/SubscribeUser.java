@@ -102,6 +102,27 @@ public class SubscribeUser extends Auditable {
                 .build();
     }
 
+    public static SubscribeUser create(Subscribe subscribe, User user, SubscribeStatus subscribeStatus) {
+        return SubscribeUser.builder()
+                .userId(user.getUserId())
+                .subscribeId(subscribe.getSubscribeId())
+                .userName(user.getUsername())
+                .userNickName(user.getNickName())
+                .title(subscribe.getTitle())
+                .content(subscribe.getContent())
+                .price(subscribe.getPrice())
+                .questionCount(subscribe.getQuestionCount())
+                .tutoringCount(subscribe.getTutoringCount())
+                .subscribeMonthPeriod(subscribe.getSubscribeMonthPeriod())
+                .videoLessonsCount(subscribe.getVideoLessonsCount())
+                .expirationDate(LocalDate.now().plusMonths(subscribe.getSubscribeMonthPeriod()))
+                .videoLessonsIdList(new ArrayList<>())
+                .subscriptionDate(LocalDate.now())
+                .subscriptionDay(LocalDate.now().getDayOfMonth())
+                .subscribeStatus(subscribeStatus)
+                .build();
+    }
+
     public SubscribeUser update(SubscribeUserPatchDto dto) {
         this.questionCount = Optional.ofNullable(dto.getQuestionCount()).orElse(this.questionCount);
         this.tutoringCount = Optional.ofNullable(dto.getTutoringCount()).orElse(this.tutoringCount);

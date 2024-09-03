@@ -22,6 +22,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -39,9 +40,18 @@ public class SubscribeService {
     }
 
     public SubscribeUserResponseDto createSubscribeUser(Long subscribeId, User user, Long userId) {
+        verifyActiveSubUserThrowError(userId);
         Subscribe subscribe = verifySubscribe(subscribeId);
         User findUser = userService.findUserEntity(userId);
         SubscribeUser newSubUser = SubscribeUser.create(subscribe, findUser);
+        SubscribeUser saveSubUser = subscribeRepository.saveSubscribeUser(newSubUser);
+        return SubscribeUserResponseDto.of(saveSubUser);
+    }
+
+    public SubscribeUserResponseDto createSubscribeUserByOrderConfirm(Long subscribeId, Long userId) {
+        Subscribe subscribe = verifySubscribe(subscribeId);
+        User findUser = userService.findUserEntity(userId);
+        SubscribeUser newSubUser = SubscribeUser.create(subscribe, findUser, SubscribeStatus.ACTIVE);
         SubscribeUser saveSubUser = subscribeRepository.saveSubscribeUser(newSubUser);
         return SubscribeUserResponseDto.of(saveSubUser);
     }
@@ -80,9 +90,16 @@ public class SubscribeService {
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
     }
 
-    private SubscribeUser verifyActiveSubUser(Long userId) {
-        return subscribeRepository.findSubscribeUserByUserIdAndStatus(userId, SubscribeStatus.ACTIVE)
-                .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_ACTIVE_SUBSCRIBE));
+    public SubscribeUserResponseDto verifyActiveSubUser(Long userId) {
+        Optional<SubscribeUser> find = subscribeRepository.findSubscribeUserByUserIdAndStatus(userId, SubscribeStatus.ACTIVE);
+        return find.map(SubscribeUserResponseDto::of).orElse(null);
+    }
+
+    public void verifyActiveSubUserThrowError(Long userId) {
+        Optional<SubscribeUser> find = subscribeRepository.findSubscribeUserByUserIdAndStatus(userId, SubscribeStatus.ACTIVE);
+        if (find.isPresent()) {
+            throw new ServiceLogicException(ErrorCode.ALREADY_ACTIVE_SUBSCRIBE);
+        }
     }
 
     private SubscribeUser verifySubUser(Long subscribeUserId) {
