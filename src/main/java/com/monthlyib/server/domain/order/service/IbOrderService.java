@@ -20,9 +20,9 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class IbOrderService {
 
-    private SubscribeService subscribeService;
+    private final SubscribeService subscribeService;
 
-    private IbOrderJpaRepository ibOrderJpaRepository;
+    private final IbOrderJpaRepository ibOrderJpaRepository;
 
     public OrderResponseDto createIbOrder(OrderDto orderDto, Long userId, Long subscribeId) {
         IbOrder ibOrder = IbOrder.create(orderDto, userId, subscribeId);
