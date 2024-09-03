@@ -45,7 +45,7 @@ import java.util.List;
 @Tag(name = "L. Order", description = "주문 관리 API")
 public class OrderController {
 
-    private IbOrderService ibOrderService;
+    private final IbOrderService ibOrderService;
 
     @Value("${TOSS_SECRET_KEY}")
     private String KEY;
@@ -92,7 +92,6 @@ public class OrderController {
 
             OutputStream outputStream = connection.getOutputStream();
             byte[] bytes = obj.toString().getBytes("UTF-8");
-            log.info(obj.toString());
             outputStream.write(bytes);
 
             int code = connection.getResponseCode();
@@ -104,6 +103,7 @@ public class OrderController {
             ObjectMapper objectMapper = new ObjectMapper();
             if (isSuccess) {
                 OrderDto orderDto = objectMapper.readValue(reader, OrderDto.class);
+                log.info(orderDto.toString());
                 OrderResponseDto response = ibOrderService.createIbOrder(orderDto, user.getUserId(), requestDto.getSubscribeId());
                 responseStream.close();
                 return ResponseEntity.status(code).body(ResponseDto.of(response, Result.ok()));
