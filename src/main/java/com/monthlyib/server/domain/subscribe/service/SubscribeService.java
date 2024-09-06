@@ -19,8 +19,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -108,5 +110,15 @@ public class SubscribeService {
     }
 
 
+    @Scheduled(cron = "0 0 0 * * *")
+    public void checkAndExpireSubscriptions() {
+        LocalDate currentDate = LocalDate.now();
+        List<SubscribeUser> expiredSubscriptions = subscribeRepository.findByExpirationDateBeforeAndSubscribeStatus(currentDate, SubscribeStatus.ACTIVE);
+
+        for (SubscribeUser subscription : expiredSubscriptions) {
+            subscription.setSubscribeStatus(SubscribeStatus.EXPIRATION);
+            subscribeRepository.saveSubscribeUser(subscription);
+        }
+    }
 
 }

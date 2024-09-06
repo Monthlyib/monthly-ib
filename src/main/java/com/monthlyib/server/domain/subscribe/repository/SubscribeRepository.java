@@ -6,6 +6,7 @@ import com.monthlyib.server.domain.subscribe.entity.SubscribeUser;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,4 +29,6 @@ public interface SubscribeRepository {
     SubscribeUser saveSubscribeUser(SubscribeUser subscribeUser);
 
     void deleteById(Long subscriptionId);
+
+    List<SubscribeUser> findByExpirationDateBeforeAndSubscribeStatus(LocalDate expirationDate, SubscribeStatus subscribeStatus);
 }
