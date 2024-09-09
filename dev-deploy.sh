@@ -1,82 +1,63 @@
 #!/bin/bash
 
+# 빌드 경로 설정
 BUILD=/home/ubuntu/monthly-ib
-DEV_JAR=server-0.0.1.jar
-LOG_PATH=/home/ubuntu/monthly-ib
-DEPLOY_PATH=/home/ubuntu/monthly-ib
 
+# 빌드 디렉토리로 이동
 cd $BUILD || { echo "Failed to change directory to $BUILD"; exit 1; }
 
-# 스크립트 로그 파일이 없다면 생성
-mkdir -p $LOG_PATH
-
+# Git 업데이트
 git fetch --all
 git reset --hard origin/dev
 git checkout dev
 git pull origin dev
 
+# Gradle 실행 권한 설정
 chmod 700 gradlew
 sudo chmod -R 755 .
 
+# 컨테이너 및 이미지 이름 설정
+APP_CONTAINER_NAME=web-server-app
+APP_OLD_IMAGES_NAME=monthly-ib_app
+REDIS_CONTAINER_NAME=redis_server
+NGINX_OLD_IMAGES_NAME=nginx
+NGINX_CONTAINER_NAME=nginx_server
+REDIS_OLD_IMAGES_NAME=redis
+CERBOT_CONTAINER_NAME=cerbot
+CERTBOT_OLD_IMAGES_NAME=certbot/certbot
 
+
+# Gradle 빌드
 ./gradlew clean build
 
-BUILD_JAR=$(ls $BUILD/build/libs/server-0.0.1.jar)
+# 기존 컨테이너 종료 및 이미지 삭제 함수
+cleanup_old_container_and_images() {
+  local container_name=$1
+  local image_reference=$2
 
-echo "> 현재 시간: $(date)" >> $LOG_PATH/deploy.log
-echo "> dev build 파일명: $DEV_JAR" >> $LOG_PATH/deploy.log
-echo "> dev build 파일 복사" >> $LOG_PATH/deploy.log
-
-EXIST_FILE=$DEPLOY_PATH/$DEV_JAR
-sudo rm -f $EXIST_FILE
-sudo cp $BUILD_JAR $EXIST_FILE
-
-OLD_IMAGES_NAME=monthly-ib_app
-
-
-# 기존 컨테이너 종료 후 이미지 제거
-OLD_IMAGES=$(sudo docker images -aq --filter "reference=$OLD_IMAGES_NAME")
-
-if [ ! -z "$OLD_IMAGES" ]; then
-  echo "Stopping and removing containers using images..."
-  CONTAINERS=$(sudo docker ps -q --filter "ancestor=$OLD_IMAGES_NAME")
-
-  if [ ! -z "$CONTAINERS" ]; then
-    echo "Stopping running containers..."
-    sudo docker stop $CONTAINERS
-    echo "Removing stopped containers..."
-    sudo docker rm $CONTAINERS
+  if [ "$(sudo docker ps -q -f name=$container_name)" ]; then
+    echo "Stopping existing ${container_name} container..."
+    sudo docker stop $container_name
+    echo "Removing existing ${container_name} container..."
+    sudo docker rm $container_name
   fi
 
-  echo "Removing old images..."
-  sudo docker rmi -f $OLD_IMAGES
-else
-  echo "No images found for reference: $OLD_IMAGES"
-fi
+  OLD_IMAGES=$(sudo docker images -aq --filter "reference=$image_reference")
 
+  if [ ! -z "$OLD_IMAGES" ]; then
+    echo "Removing old images for reference: ${image_reference}..."
+    sudo docker rmi -f $OLD_IMAGES
+  else
+    echo "No images found for reference: ${image_reference}"
+  fi
+}
 
-NGINX_CONTAINER_NAME=nginx_server
-# 기존 Nginx 컨테이너를 중지하고 제거
-if [ "$(sudo docker ps -q -f name=NGINX_CONTAINER_NAME)" ]; then
-    echo "Stopping existing NGINX container..."
-    sudo docker stop NGINX_CONTAINER_NAME
-    echo "Removing existing NGINX container..."
-    sudo docker rm NGINX_CONTAINER_NAME
-fi
+# 각 컨테이너 및 이미지 정리
+cleanup_old_container_and_images "$APP_CONTAINER_NAME" "$APP_OLD_IMAGES_NAME"
+cleanup_old_container_and_images "$REDIS_CONTAINER_NAME" "$REDIS_OLD_IMAGES_NAME"
+cleanup_old_container_and_images "$NGINX_CONTAINER_NAME" "$NGINX_OLD_IMAGES_NAME"
+cleanup_old_container_and_images "$CERBOT_CONTAINER_NAME" "$CERTBOT_OLD_IMAGES_NAME"
 
-CERBOT_CONTAINER_NAME=cerbot
-# 기존 Nginx 컨테이너를 중지하고 제거
-if [ "$(sudo docker ps -q -f name=CERBOT_CONTAINER_NAME)" ]; then
-    echo "Stopping existing CERBOT container..."
-    sudo docker stop CERBOT_CONTAINER_NAME
-    echo "Removing existing CERBOT container..."
-    sudo docker rm CERBOT_CONTAINER_NAME
-fi
-
-echo "> Dev DEPLOY_JAR 배포" >> $LOG_PATH/deploy.log
-
-# Docker Compose 빌드
+# Docker Compose 빌드 및 실행
 sudo docker-compose build
-
-# 나머지 컨테이너를 Docker Compose을 사용하여 실행
 sudo docker-compose up -d
