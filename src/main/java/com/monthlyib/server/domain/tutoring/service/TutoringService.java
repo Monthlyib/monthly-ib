@@ -12,7 +12,6 @@ import com.monthlyib.server.domain.user.repository.UserRepository;
 import com.monthlyib.server.dto.PageResponseDto;
 import com.monthlyib.server.dto.Result;
 import com.monthlyib.server.event.UserTutoringConfirmEvent;
-import com.monthlyib.server.event.UserVerificationEvent;
 import com.monthlyib.server.exception.ServiceLogicException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -74,7 +73,7 @@ public class TutoringService {
                 dto.getDate(),
                 dto.getStatus(),
                 userId,
-                PageRequest.of(page, 30, Sort.by("createAt").descending())
+                PageRequest.of(page, 10, Sort.by("createAt").descending())
         );
         return TutoringDetailResponseDto.of(dto.getDate(), PageResponseDto.of(response, response.getContent(), Result.ok()));
     }

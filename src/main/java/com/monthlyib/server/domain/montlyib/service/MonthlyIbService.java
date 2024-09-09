@@ -33,7 +33,7 @@ public class MonthlyIbService {
             int page,
             MonthlyIbSearchDto dto
     ) {
-        return monthlyIbRepository.findAllMonthlyIb(PageRequest.of(page, 10, Sort.by("createAt").descending()), dto);
+        return monthlyIbRepository.findAllMonthlyIb(PageRequest.of(page, 6, Sort.by("createAt").descending()), dto);
     }
 
     public MonthlyIbResponseDto findMonthlyIbById(Long monthlyIbId) {

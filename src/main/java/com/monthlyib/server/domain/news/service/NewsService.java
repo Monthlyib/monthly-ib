@@ -34,7 +34,7 @@ public class NewsService {
     private final FileService fileService;
 
     public Page<NewsSimpleResponseDto> findAllNews(int page, NewsSearchDto dto) {
-        return newsRepository.findAllNews(PageRequest.of(page, 10, Sort.by("createAt").descending()), dto);
+        return newsRepository.findAllNews(PageRequest.of(page, 5, Sort.by("createAt").descending()), dto);
     }
 
     public NewsResponseDto findNews(Long newsId) {

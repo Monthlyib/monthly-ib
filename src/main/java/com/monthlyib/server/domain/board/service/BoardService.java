@@ -39,10 +39,10 @@ public class BoardService {
     private final UserService userService;
 
     public Page<BoardSimpleResponseDto> findAllBoardLis(int page, BoardSearchDto dto) {
-        return boardRepository.findAllBoards(PageRequest.of(page, 10, Sort.by("createAt").descending()), dto);
+        return boardRepository.findAllBoards(PageRequest.of(page, 5, Sort.by("createAt").descending()), dto);
     }
     public Page<BoardSimpleResponseDto> findAllBoardListForUser(int page, BoardSearchDto dto, Long userId) {
-        return boardRepository.findAllBoardsByUserId(PageRequest.of(page, 10, Sort.by("createAt").descending()), dto, userId);
+        return boardRepository.findAllBoardsByUserId(PageRequest.of(page, 5, Sort.by("createAt").descending()), dto, userId);
     }
 
     public BoardResponseDto findBoard(int replyPage, Long boardId) {

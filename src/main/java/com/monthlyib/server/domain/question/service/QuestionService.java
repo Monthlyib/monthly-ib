@@ -35,7 +35,7 @@ public class QuestionService {
 
     public Page<QuestionResponseDto> findAllQuestion(int page, QuestionSearchDto searchDto) {
         return questionRepository.findAll(
-                PageRequest.of(page, 10, Sort.by("createAt").descending()),
+                PageRequest.of(page, 6, Sort.by("createAt").descending()),
                 searchDto
         );
     }
@@ -55,7 +55,7 @@ public class QuestionService {
     ) {
         return questionRepository.findAllByUserId(
                 userId,
-                PageRequest.of(page, 10, Sort.by("createAt").descending()),
+                PageRequest.of(page, 6, Sort.by("createAt").descending()),
                 searchDto
         );
     }

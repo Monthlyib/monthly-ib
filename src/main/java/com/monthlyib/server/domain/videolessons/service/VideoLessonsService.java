@@ -36,7 +36,7 @@ public class VideoLessonsService {
 
     public Page<VideoLessonsSimpleResponseDto> findAllSimple(VideoLessonsSearchDto dto) {
         return videoLessonsRepository.findAll(
-                PageRequest.of(dto.getPage(), 10, Sort.by("createAt").descending()),
+                PageRequest.of(dto.getPage(), 5, Sort.by("createAt").descending()),
                 dto
         ).map(VideoLessonsSimpleResponseDto::of);
     }
@@ -201,7 +201,7 @@ public class VideoLessonsService {
     }
 
     public Page<VideoLessonsUserSimpleResponseDto> findAllByUser(User user, int page, Long userId) {
-        Page<VideoLessonsUser> find = videoLessonsRepository.findAllVideoLessonsUser(userId, PageRequest.of(page, 10, Sort.by("createAt").descending()));
+        Page<VideoLessonsUser> find = videoLessonsRepository.findAllVideoLessonsUser(userId, PageRequest.of(page, 5, Sort.by("createAt").descending()));
         return find.map(vu -> {
             VideoLessons videoLessons = verifyVideoLessons(vu.getVideoLessonsId());
             return VideoLessonsUserSimpleResponseDto.of(videoLessons, vu.getStatus());
