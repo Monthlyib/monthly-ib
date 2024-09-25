@@ -3,7 +3,10 @@ package com.monthlyib.server.domain.videolessons.service;
 import com.monthlyib.server.api.videolessons.dto.*;
 import com.monthlyib.server.constant.AwsProperty;
 import com.monthlyib.server.constant.ErrorCode;
+import com.monthlyib.server.constant.SubscribeStatus;
 import com.monthlyib.server.constant.VideoLessonsUserStatus;
+import com.monthlyib.server.domain.subscribe.entity.SubscribeUser;
+import com.monthlyib.server.domain.subscribe.repository.SubscribeRepository;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.user.service.UserService;
 import com.monthlyib.server.domain.videolessons.entity.*;
@@ -33,6 +36,8 @@ public class VideoLessonsService {
 
     private final FileService fileService;
     private final UserService userService;
+    private final SubscribeRepository subscribeRepository;
+
 
     public Page<VideoLessonsSimpleResponseDto> findAllSimple(VideoLessonsSearchDto dto) {
         return videoLessonsRepository.findAll(
@@ -209,6 +214,16 @@ public class VideoLessonsService {
     }
 
     public VideoLessonsResponseDto createVideoLessonsUser(User user, Long videoLessonsId) {
+        SubscribeUser findSubUser = subscribeRepository.findSubscribeUserByUserIdAndStatus(user.getUserId(), SubscribeStatus.ACTIVE)
+                .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
+        if (findSubUser.getVideoLessonsCount() > 0) {
+            int videoLessonsCount = findSubUser.getVideoLessonsCount();
+            findSubUser.setVideoLessonsCount(videoLessonsCount - 1);
+            findSubUser.setVideoLessonsIdList(List.of(videoLessonsId));
+            subscribeRepository.saveSubscribeUser(findSubUser);
+        } else {
+            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+        }
         VideoLessonsUser newVideoLessonsUser = VideoLessonsUser.builder()
                 .userId(user.getUserId())
                 .videoLessonsId(videoLessonsId)

@@ -97,6 +97,12 @@ public class SubscribeService {
         return find.map(SubscribeUserResponseDto::of).orElse(null);
     }
 
+    public SubscribeUser getActiveSubscribeUser(Long userId) {
+        return subscribeRepository.findSubscribeUserByUserIdAndStatus(userId, SubscribeStatus.ACTIVE)
+                .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
+    }
+
+
     public void verifyActiveSubUserThrowError(Long userId) {
         Optional<SubscribeUser> find = subscribeRepository.findSubscribeUserByUserIdAndStatus(userId, SubscribeStatus.ACTIVE);
         if (find.isPresent()) {

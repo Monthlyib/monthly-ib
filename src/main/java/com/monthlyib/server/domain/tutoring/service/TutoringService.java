@@ -1,10 +1,9 @@
 package com.monthlyib.server.domain.tutoring.service;
 
 import com.monthlyib.server.api.tutoring.dto.*;
-import com.monthlyib.server.constant.Authority;
-import com.monthlyib.server.constant.ErrorCode;
-import com.monthlyib.server.constant.TutoringStatus;
-import com.monthlyib.server.constant.TutoringTime;
+import com.monthlyib.server.constant.*;
+import com.monthlyib.server.domain.subscribe.entity.SubscribeUser;
+import com.monthlyib.server.domain.subscribe.repository.SubscribeRepository;
 import com.monthlyib.server.domain.tutoring.entity.Tutoring;
 import com.monthlyib.server.domain.tutoring.repository.TutoringRepository;
 import com.monthlyib.server.domain.user.entity.User;
@@ -39,6 +38,8 @@ public class TutoringService {
     private final ApplicationEventPublisher publisher;
 
     private final UserRepository userRepository;
+
+    private final SubscribeRepository subscribeRepository;
 
 
     public TutoringSimpleResponseDto findTutoringSimple(TutoringSearchDto dto) {
@@ -90,6 +91,13 @@ public class TutoringService {
         }
         Tutoring newTutoring = Tutoring.create(dto, user.getUsername(), user.getNickName());
         Tutoring save = tutoringRepository.save(newTutoring);
+
+        SubscribeUser findSubUser = subscribeRepository.findSubscribeUserByUserIdAndStatus(save.getRequestUserId(), SubscribeStatus.ACTIVE)
+                .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
+        int tutoringCount = findSubUser.getTutoringCount();
+        findSubUser.setTutoringCount(tutoringCount - 1);
+        subscribeRepository.saveSubscribeUser(findSubUser);
+
         return TutoringResponseDto.of(save);
     }
 
@@ -117,6 +125,13 @@ public class TutoringService {
         if (!user.getAuthority().equals(Authority.ADMIN) && !findTutoring.getRequestUserId().equals(user.getUserId())) {
             throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
         }
+
+        SubscribeUser findSubUser = subscribeRepository.findSubscribeUserByUserIdAndStatus(findTutoring.getRequestUserId(), SubscribeStatus.ACTIVE)
+                .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
+        int tutoringCount = findSubUser.getTutoringCount();
+        findSubUser.setTutoringCount(tutoringCount + 1);
+        subscribeRepository.saveSubscribeUser(findSubUser);
+
         tutoringRepository.delete(tutoringId);
     }
 }

@@ -5,9 +5,12 @@ import com.monthlyib.server.api.question.dto.*;
 import com.monthlyib.server.api.user.dto.UserResponseDto;
 import com.monthlyib.server.constant.ErrorCode;
 import com.monthlyib.server.constant.QuestionStatus;
+import com.monthlyib.server.constant.SubscribeStatus;
 import com.monthlyib.server.domain.answer.entity.Answer;
 import com.monthlyib.server.domain.question.entity.Question;
 import com.monthlyib.server.domain.question.repository.QuestionRepository;
+import com.monthlyib.server.domain.subscribe.entity.SubscribeUser;
+import com.monthlyib.server.domain.subscribe.repository.SubscribeRepository;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.user.repository.UserRepository;
 import com.monthlyib.server.event.UserQuestionConfirmEvent;
@@ -32,6 +35,8 @@ public class QuestionService {
     private final UserRepository userRepository;
 
     private final ApplicationEventPublisher publisher;
+
+    private final SubscribeRepository subscribeRepository;
 
     public Page<QuestionResponseDto> findAllQuestion(int page, QuestionSearchDto searchDto) {
         return questionRepository.findAll(
@@ -74,6 +79,11 @@ public class QuestionService {
         User user = userRepository.findById(questionPostDto.getAuthorId())
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
         Question newQuestion = Question.create(questionPostDto, user);
+        SubscribeUser findSubUser = subscribeRepository.findSubscribeUserByUserIdAndStatus(questionPostDto.getAuthorId(), SubscribeStatus.ACTIVE)
+                .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
+        int questionCount = findSubUser.getQuestionCount();
+        findSubUser.setQuestionCount(questionCount - 1);
+        subscribeRepository.saveSubscribeUser(findSubUser);
         return QuestionResponseDto.of(questionRepository.saveQuestion(newQuestion), null);
     }
 
@@ -93,6 +103,11 @@ public class QuestionService {
         if (findQuestion.getQuestionStatus().equals(QuestionStatus.COMPLETE)) {
             throw new ServiceLogicException(ErrorCode.COMPLETE_QUESTION);
         }
+        SubscribeUser findSubUser = subscribeRepository.findSubscribeUserByUserIdAndStatus(findQuestion.getAuthorId(), SubscribeStatus.ACTIVE)
+                .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
+        int questionCount = findSubUser.getQuestionCount();
+        findSubUser.setQuestionCount(questionCount + 1);
+        subscribeRepository.saveSubscribeUser(findSubUser);
         questionRepository.deleteQuestion(questionId);
     }
 
