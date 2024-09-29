@@ -13,6 +13,7 @@ import com.monthlyib.server.constant.*;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.user.entity.UserImage;
 import com.monthlyib.server.domain.user.repository.UserRepository;
+import com.monthlyib.server.event.UserSendEmailEvent;
 import com.monthlyib.server.event.UserVerificationEvent;
 import com.monthlyib.server.exception.ServiceLogicException;
 import com.monthlyib.server.file.service.FileService;
@@ -31,6 +32,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -171,13 +173,28 @@ public class UserService {
         publisher.publishEvent(new UserVerificationEvent(this, email));
     }
 
-    public void verifyNum(VerifyNumRequestDto dto) {
+    public UserResponseDto verifyNum(VerifyNumRequestDto dto) {
         String verifyNum = dto.getVerifyNum();
         String email = dto.getEmail();
         VerifyNumDto num = verifyNumService.getNum(email);
+        User findUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
         if (!verifyNum.equals(num.getVerifyNum())) {
             throw new ServiceLogicException(ErrorCode.WRONG_VERIFY_NUM);
         }
+        if (dto.getPwdReset()) {
+            String substring = UUID.randomUUID().toString().substring(0, 12);
+            String encodePassword = passwordEncoder.encode(substring);
+            findUser.setPassword(encodePassword);
+            publisher.publishEvent(new UserSendEmailEvent(
+                    this,
+                    email,
+                    findUser.getNickName(),
+                    "회원님의 재설정 비밀번호는  " +substring+"  입니다."
+            ));
+            userRepository.save(findUser);
+        }
+        return UserResponseDto.of(findUser, null);
     }
 
     public void verifyUsername(UsernameVerifyDto dto) {

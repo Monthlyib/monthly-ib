@@ -81,9 +81,9 @@ public class UserOpenApiController implements UserOpenApiControllerIfs {
 
     @Override
     @PostMapping("/verify-num")
-    public ResponseEntity<ResponseDto<?>> verifyNumPost(VerifyNumRequestDto requestDto) {
-        userService.verifyNum(requestDto);
-        return ResponseEntity.ok(ResponseDto.of(Result.ok()));
+    public ResponseEntity<ResponseDto<UserResponseDto>> verifyNumPost(VerifyNumRequestDto requestDto) {
+        UserResponseDto response = userService.verifyNum(requestDto);
+        return ResponseEntity.ok(ResponseDto.of(response,Result.ok()));
     }
 
     @Override

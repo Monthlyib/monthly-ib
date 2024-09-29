@@ -133,17 +133,17 @@ public interface UserOpenApiControllerIfs {
     );
 
     // 이메일 인증 번호 확인 여부 요청
-    @Operation(summary = "인증번호 검증 요청", description = "200 OK 응답 확인, 인증번호 검증 요청")
+    @Operation(summary = "인증번호 검증 요청", description = "200 OK 응답 확인, 인증번호 검증 요청, pwdReset 값 true시 회원 비밀번호 12자리 랜덤 재설정 및 이메일 전송됨")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "정상 응답", content = {
-                    @Content(mediaType = "application/json")
+                    @Content(mediaType = "application/json", schema = @Schema(implementation = UserResponse.class))
             }),
             @ApiResponse(responseCode = "400", description = "BAD REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "500", description = "INTERNAL SERVER ERROR",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
     })
-    ResponseEntity<ResponseDto<?>> verifyNumPost(
+    ResponseEntity<ResponseDto<UserResponseDto>> verifyNumPost(
             @RequestBody VerifyNumRequestDto requestDto
     );
 
