@@ -24,7 +24,8 @@ public class CorsFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
         List<String> list = List.of(
-                "http://localhost:3000"
+                "http://localhost:3000",
+                "https://monthly-ib.com"
         );
         String originUrl = request.getHeader("Origin");
         String origin = list.stream().filter(
