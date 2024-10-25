@@ -61,11 +61,10 @@ public class UserService {
     public Page<UserResponseDto> findAll(int page, User user) {
 
         return userRepository.findAll(PageRequest.of(page, 15, Sort.by("createAt").descending()))
-                .map( u -> {
+                .map(u -> {
                     return UserResponseDto.of(u, firstUserImage(u.getUserId()));
                 });
     }
-
 
     public LoginApiResponseDto userLogin(LoginDto loginDto) {
         String username = loginDto.getUsername();
@@ -83,8 +82,7 @@ public class UserService {
 
     public LoginApiResponseDto loginSocial(
             SocialLoginDto socialLoginDto,
-            HttpServletResponse response
-    ) {
+            HttpServletResponse response) {
         String email = httpClientService.generateLoginRequest(socialLoginDto);
         try {
             User user = createOrVerifiedUserByEmailAndLoginType(email, socialLoginDto.getLoginType());
@@ -137,7 +135,6 @@ public class UserService {
         return UserResponseDto.of(userRepository.save(updateUser), firstUserImage(userId));
     }
 
-
     public UserResponseDto updateSocialUser(Long userId, UserSocialPatchRequestDto dto) {
         User findUser = findUserEntity(userId);
         User updateUser = findUser.updateSocialUser(dto);
@@ -147,7 +144,8 @@ public class UserService {
 
     public UserResponseDto createUser(UserPostRequestDto dto) {
         Optional<User> user = verifyEmail(dto.getEmail());
-        if (user.isPresent()) throw new ServiceLogicException(ErrorCode.USER_EXIST);
+        if (user.isPresent())
+            throw new ServiceLogicException(ErrorCode.USER_EXIST);
         try {
             verifyNum(VerifyNumRequestDto.builder().email(dto.getEmail()).verifyNum(dto.getVerifyNum()).build());
         } catch (Exception e) {
@@ -167,7 +165,6 @@ public class UserService {
         publisher.publishEvent(new UserVerificationEvent(this, email));
     }
 
-
     public void verifyPwdEmail(EmailRequestDto dto) {
         String email = dto.getEmail();
         publisher.publishEvent(new UserVerificationEvent(this, email));
@@ -177,31 +174,43 @@ public class UserService {
         String verifyNum = dto.getVerifyNum();
         String email = dto.getEmail();
         VerifyNumDto num = verifyNumService.getNum(email);
-        User findUser = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
+
+        // Verify if the provided verification number matches
         if (!verifyNum.equals(num.getVerifyNum())) {
             throw new ServiceLogicException(ErrorCode.WRONG_VERIFY_NUM);
         }
-        if (dto.getPwdReset()) {
-            String substring = UUID.randomUUID().toString().substring(0, 12);
-            String encodePassword = passwordEncoder.encode(substring);
-            findUser.setPassword(encodePassword);
+
+        // Check if pwdReset is true and proceed with user lookup and reset if needed
+        if (dto.getPwdReset() != null && dto.getPwdReset()) {
+            User findUser = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
+
+            // Generate and encode a new random password
+            String newPassword = UUID.randomUUID().toString().substring(0, 12);
+            String encodedPassword = passwordEncoder.encode(newPassword);
+            findUser.setPassword(encodedPassword);
+
+            // Send the reset password to the user's email
             publisher.publishEvent(new UserSendEmailEvent(
                     this,
                     email,
                     findUser.getNickName(),
-                    "회원님의 재설정 비밀번호는  " +substring+"  입니다."
-            ));
+                    "회원님의 재설정 비밀번호는 " + newPassword + " 입니다."));
+
+            // Save the updated user with new password
             userRepository.save(findUser);
+            return UserResponseDto.of(findUser, null);
         }
-        return UserResponseDto.of(findUser, null);
+
+        // Return null or an appropriate response when verification succeeds without
+        // pwdReset
+        return null;
     }
 
     public void verifyUsername(UsernameVerifyDto dto) {
         String username = dto.getUsername();
         verifyUsername(username);
     }
-
 
     public void deleteUser(Long userId, User user) {
         if (user.getAuthority().equals(Authority.ADMIN)) {
@@ -218,7 +227,6 @@ public class UserService {
         userRepository.save(findUser);
     }
 
-
     private User createOrVerifiedUserByEmailAndLoginType(String email, String loginType) {
         try {
             User findUser = userRepository.findByEmail(email)
@@ -232,14 +240,13 @@ public class UserService {
             }
         } catch (ServiceLogicException e) {
             if (e.getErrorCode().equals(ErrorCode.NOT_FOUND_USER)) {
-                //회원가입
+                // 회원가입
                 return userRepository.save(User.createEmptyUser(email, loginType));
             } else {
                 throw e;
             }
         }
     }
-
 
     public LoginApiResponseDto refreshToken(Long userId) {
         try {
@@ -260,9 +267,7 @@ public class UserService {
         User findUser = findUserEntity(userId);
         List<UserImage> currentList = userRepository.findAllUserImage(userId);
         if (!currentList.isEmpty()) {
-            currentList.forEach( m ->
-                    fileService.deleteAwsFile(m.getFileName(), AwsProperty.USER_IMAGE)
-            );
+            currentList.forEach(m -> fileService.deleteAwsFile(m.getFileName(), AwsProperty.USER_IMAGE));
         }
         userRepository.deleteAllUserImage(userId);
         UserImage image = null;
@@ -310,6 +315,5 @@ public class UserService {
             return image.get(0);
         }
     }
-
 
 }
