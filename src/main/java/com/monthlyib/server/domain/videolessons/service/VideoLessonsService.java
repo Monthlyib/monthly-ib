@@ -38,12 +38,10 @@ public class VideoLessonsService {
     private final UserService userService;
     private final SubscribeRepository subscribeRepository;
 
-
     public Page<VideoLessonsSimpleResponseDto> findAllSimple(VideoLessonsSearchDto dto) {
         return videoLessonsRepository.findAll(
                 PageRequest.of(dto.getPage(), 5, Sort.by("createAt").descending()),
-                dto
-        ).map(VideoLessonsSimpleResponseDto::of);
+                dto).map(VideoLessonsSimpleResponseDto::of);
     }
 
     public VideoLessonsResponseDto findVideoLessons(Long videoLessonsId, int page) {
@@ -51,61 +49,109 @@ public class VideoLessonsService {
         List<VideoLessonsMainChapter> videoMainChapters = videoLessonsRepository.findVideoMainChapters(videoLessonsId);
         List<VideoLessonsChapterResponseDto> mainChapter = new ArrayList<>();
         videoMainChapters.forEach(c -> {
-            List<VideoLessonsSubChapterResponseDto> sub = videoLessonsRepository.findVideoSubChaptersByMainChapterId(c.getVideoLessonsMainChapterId())
+            List<VideoLessonsSubChapterResponseDto> sub = videoLessonsRepository
+                    .findVideoSubChaptersByMainChapterId(c.getVideoLessonsMainChapterId())
                     .stream().map(VideoLessonsSubChapterResponseDto::of).sorted().toList();
             mainChapter.add(VideoLessonsChapterResponseDto.of(c, sub));
         });
 
-        Page<VideoLessonsReplyResponseDto> reply = videoLessonsRepository.findVideoReply(videoLessonsId, PageRequest.of(page, 10, Sort.by("createAt").descending()))
+        Page<VideoLessonsReplyResponseDto> reply = videoLessonsRepository
+                .findVideoReply(videoLessonsId, PageRequest.of(page, 10, Sort.by("createAt").descending()))
                 .map(VideoLessonsReplyResponseDto::of);
         return VideoLessonsResponseDto.of(findVideoLessons, mainChapter, reply);
     }
 
+    // 비디오 강의 및 챕터, 서브 챕터 데이터를 생성하고 저장
     public VideoLessonsResponseDto createVideoLessons(VideoLessonsPostDto dto) {
+        // 비디오 강의 생성 요청 데이터에서 챕터 리스트와 카테고리 ID 가져오기
         List<VideoLessonsChapterPostDto> chapterPostDto = dto.getChapters();
         Long firstCategoryId = dto.getFirstCategoryId();
         Long secondCategoryId = dto.getSecondCategoryId();
         Long thirdCategoryId = dto.getThirdCategoryId();
+
+        // 각 카테고리 ID를 기반으로 카테고리 존재 여부 확인 및 반환
         VideoLessonsCategory firstCategory = verifyVideoLessonsCategory(firstCategoryId);
         VideoLessonsCategory secondCategory = verifyVideoLessonsCategory(secondCategoryId);
         VideoLessonsCategory thirdCategory = verifyVideoLessonsCategory(thirdCategoryId);
+
+        // DTO와 카테고리 정보를 기반으로 새 비디오 강의 생성
         VideoLessons newVideo = VideoLessons.create(dto, firstCategory, secondCategory, thirdCategory);
+
+        // 생성된 비디오 강의를 저장하고 ID 반환
         VideoLessons saveVideo = videoLessonsRepository.save(newVideo);
         Long videoLessonsId = saveVideo.getVideoLessonsId();
+
+        // 메인 챕터와 서브 챕터 생성 및 저장
         chapterPostDto.stream().forEach(m -> {
+            // 비디오 강의 ID와 챕터 정보를 기반으로 메인 챕터 생성
             VideoLessonsMainChapter newMain = VideoLessonsMainChapter.create(videoLessonsId, m);
             VideoLessonsMainChapter saveMain = videoLessonsRepository.save(newMain);
-            m.getSubChapters().stream().forEach( s -> {
-                VideoLessonsSubChapter newSub = VideoLessonsSubChapter.create(videoLessonsId, saveMain.getVideoLessonsMainChapterId(), s);
+
+            // 메인 챕터에 속한 서브 챕터 생성 및 저장
+            m.getSubChapters().stream().forEach(s -> {
+                VideoLessonsSubChapter newSub = VideoLessonsSubChapter.create(videoLessonsId,
+                        saveMain.getVideoLessonsMainChapterId(), s);
                 VideoLessonsSubChapter saveSub = videoLessonsRepository.save(newSub);
             });
         });
+
+        // 생성된 비디오 강의와 챕터 정보를 포함한 응답 반환
         return findVideoLessons(videoLessonsId, 0);
     }
 
+    // 비디오 강의 및 챕터, 서브 챕터 데이터를 업데이트하고 저장
     public VideoLessonsResponseDto updateVideoLessons(VideoLessonsPatchDto dto) {
+        // 비디오 강의 업데이트 요청 데이터에서 챕터 리스트와 ID, 카테고리 ID 가져오기
         List<VideoLessonsChapterPatchDto> chapterPatchDto = dto.getChapters();
         Long videoLessonsId = dto.getVideoLessonsId();
         Long firstCategoryId = dto.getFirstCategoryId();
         Long secondCategoryId = dto.getSecondCategoryId();
         Long thirdCategoryId = dto.getThirdCategoryId();
+
+        // 각 카테고리 ID를 기반으로 카테고리 존재 여부 확인 및 반환
         VideoLessonsCategory firstCategory = verifyVideoLessonsCategory(firstCategoryId);
         VideoLessonsCategory secondCategory = verifyVideoLessonsCategory(secondCategoryId);
         VideoLessonsCategory thirdCategory = verifyVideoLessonsCategory(thirdCategoryId);
+
+        // 강의 ID를 기반으로 기존 비디오 강의 조회 및 검증
         VideoLessons findVideo = verifyVideoLessons(videoLessonsId);
+
+        // 비디오 강의 정보 업데이트
         findVideo.update(dto, firstCategory, secondCategory, thirdCategory);
         VideoLessons saveVideo = videoLessonsRepository.save(findVideo);
+
         chapterPatchDto.stream().forEach(m -> {
+            // 메인 챕터를 ID로 조회 및 검증 후 업데이트
             VideoLessonsMainChapter main = verifyVideoLessonsMainChapter(m.getChapterId());
             main.update(m);
             VideoLessonsMainChapter saveMain = videoLessonsRepository.save(main);
-            m.getSubChapters().stream().forEach( s -> {
-                VideoLessonsSubChapter sub = verifyVideoLessonsSubChapter(s.getChapterId());
-                sub.update(s);
-                VideoLessonsSubChapter saveSub = videoLessonsRepository.save(sub);
 
+            m.getSubChapters().forEach(s -> {
+                if (s.getChapterId() != null) {
+                    // 기존 서브 챕터 업데이트
+                    VideoLessonsSubChapter sub = verifyVideoLessonsSubChapter(s.getChapterId());
+                    sub.update(s);
+                    videoLessonsRepository.save(sub);
+                } else {
+                    // 새로운 서브 챕터 생성
+                    VideoLessonsSubChapterPostDto newSubDto = VideoLessonsSubChapterPostDto.builder()
+                            .chapterStatus(s.getChapterStatus())
+                            .chapterTitle(s.getChapterTitle())
+                            .chapterIndex(s.getChapterIndex())
+                            .videoFileUrl(s.getVideoFileUrl())
+                            .build();
+
+                    VideoLessonsSubChapter newSub = VideoLessonsSubChapter.create(
+                            videoLessonsId,
+                            saveMain.getVideoLessonsMainChapterId(),
+                            newSubDto);
+                    videoLessonsRepository.save(newSub);
+                }
             });
+
         });
+
+        // 업데이트된 비디오 강의와 챕터 정보를 포함한 응답 반환
         return findVideoLessons(videoLessonsId, 0);
     }
 
@@ -114,9 +160,8 @@ public class VideoLessonsService {
         List<VideoThumbnail> findImage = videoLessonsRepository.findVideoThumbnailByVideoLessonsId(videoLessonsId);
         if (!findImage.isEmpty()) {
             findImage.forEach(m -> {
-                        fileService.deleteAwsFile(m.getFileName(), AwsProperty.VIDEO_LESSONS_THUMBNAIL);
-                    }
-            );
+                fileService.deleteAwsFile(m.getFileName(), AwsProperty.VIDEO_LESSONS_THUMBNAIL);
+            });
         }
         videoLessonsRepository.deleteAllVideoThumbnailByVideoLessonsId(videoLessonsId);
         for (MultipartFile multipartFile : files) {
@@ -137,8 +182,8 @@ public class VideoLessonsService {
         VideoLessonsReply newReply = VideoLessonsReply.create(dto, user);
         VideoLessonsReply saveReply = videoLessonsRepository.save(newReply);
         findVideo.setReplyCount(videoLessonsRepository.countReply(videoLessonsId));
-        findVideo.setTotalStar(findVideo.getTotalStar()+saveReply.getStar());
-        findVideo.setStarAverage(findVideo.getTotalStar()/findVideo.getReplyCount());
+        findVideo.setTotalStar(findVideo.getTotalStar() + saveReply.getStar());
+        findVideo.setStarAverage(findVideo.getTotalStar() / findVideo.getReplyCount());
         videoLessonsRepository.save(findVideo);
         return VideoLessonsReplyResponseDto.of(saveReply);
     }
@@ -149,9 +194,9 @@ public class VideoLessonsService {
         VideoLessonsReply findReply = verifyVideoLessonsReply(dto.getVideoLessonsReplyId());
         findReply.update(dto);
         VideoLessonsReply saveReply = videoLessonsRepository.save(findReply);
-        findVideo.setTotalStar(findVideo.getTotalStar()-findReply.getStar());
-        findVideo.setTotalStar(findVideo.getTotalStar()+saveReply.getStar());
-        findVideo.setStarAverage(findVideo.getTotalStar()/findVideo.getReplyCount());
+        findVideo.setTotalStar(findVideo.getTotalStar() - findReply.getStar());
+        findVideo.setTotalStar(findVideo.getTotalStar() + saveReply.getStar());
+        findVideo.setStarAverage(findVideo.getTotalStar() / findVideo.getReplyCount());
         videoLessonsRepository.save(findVideo);
         return VideoLessonsReplyResponseDto.of(saveReply);
     }
@@ -163,8 +208,8 @@ public class VideoLessonsService {
     public void deleteVideoLessonsReply(Long videoLessonsReplyId) {
         VideoLessonsReply findReply = verifyVideoLessonsReply(videoLessonsReplyId);
         VideoLessons findVideo = verifyVideoLessons(findReply.getVideoLessonsId());
-        findVideo.setTotalStar(findVideo.getTotalStar()-findReply.getStar());
-        findVideo.setStarAverage(findVideo.getTotalStar()/findVideo.getReplyCount());
+        findVideo.setTotalStar(findVideo.getTotalStar() - findReply.getStar());
+        findVideo.setStarAverage(findVideo.getTotalStar() / findVideo.getReplyCount());
         videoLessonsRepository.save(findVideo);
         videoLessonsRepository.deleteVideoLessonsReply(videoLessonsReplyId);
     }
@@ -206,7 +251,8 @@ public class VideoLessonsService {
     }
 
     public Page<VideoLessonsUserSimpleResponseDto> findAllByUser(User user, int page, Long userId) {
-        Page<VideoLessonsUser> find = videoLessonsRepository.findAllVideoLessonsUser(userId, PageRequest.of(page, 5, Sort.by("createAt").descending()));
+        Page<VideoLessonsUser> find = videoLessonsRepository.findAllVideoLessonsUser(userId,
+                PageRequest.of(page, 5, Sort.by("createAt").descending()));
         return find.map(vu -> {
             VideoLessons videoLessons = verifyVideoLessons(vu.getVideoLessonsId());
             return VideoLessonsUserSimpleResponseDto.of(videoLessons, vu.getStatus());
@@ -214,7 +260,8 @@ public class VideoLessonsService {
     }
 
     public VideoLessonsResponseDto createVideoLessonsUser(User user, Long videoLessonsId) {
-        SubscribeUser findSubUser = subscribeRepository.findSubscribeUserByUserIdAndStatus(user.getUserId(), SubscribeStatus.ACTIVE)
+        SubscribeUser findSubUser = subscribeRepository
+                .findSubscribeUserByUserIdAndStatus(user.getUserId(), SubscribeStatus.ACTIVE)
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
         if (findSubUser.getVideoLessonsCount() > 0) {
             int videoLessonsCount = findSubUser.getVideoLessonsCount();
@@ -232,8 +279,6 @@ public class VideoLessonsService {
         VideoLessonsUser saveVideoLessonsUser = videoLessonsRepository.save(newVideoLessonsUser);
         return findVideoLessons(videoLessonsId, 0);
     }
-
-
 
     private VideoLessonsReply verifyVideoLessonsReply(Long videoLessonsReplyId) {
         return videoLessonsRepository.findVideoReplyById(videoLessonsReplyId)
@@ -262,6 +307,5 @@ public class VideoLessonsService {
         return videoLessonsRepository.findVideoSubChapter(videoLessonsSubChapterId)
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_VIDEO_LESSONS_SUB_CHAPTER));
     }
-
 
 }

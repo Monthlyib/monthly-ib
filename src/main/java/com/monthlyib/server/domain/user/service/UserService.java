@@ -59,12 +59,14 @@ public class UserService {
     private final FileService fileService;
 
     public Page<UserResponseDto> findAll(int page, User user) {
-
+        if (!user.getAuthority().equals(Authority.ADMIN)) {
+            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED); // 접근 거부 예외 처리
+        }
+        
         return userRepository.findAll(PageRequest.of(page, 15, Sort.by("createAt").descending()))
-                .map(u -> {
-                    return UserResponseDto.of(u, firstUserImage(u.getUserId()));
-                });
+                .map(u -> UserResponseDto.of(u, firstUserImage(u.getUserId())));
     }
+    
 
     public LoginApiResponseDto userLogin(LoginDto loginDto) {
         String username = loginDto.getUsername();
