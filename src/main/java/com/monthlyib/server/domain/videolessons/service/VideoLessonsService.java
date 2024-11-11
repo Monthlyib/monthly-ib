@@ -22,7 +22,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -124,40 +128,47 @@ public class VideoLessonsService {
 
         // 요청으로 들어온 메인 챕터 및 서브 챕터 ID 목록 수집
         Set<Long> requestedMainChapterIds = new HashSet<>();
-        Set<Long> requestedSubChapterIds = new HashSet<>();
+        Map<Long, Set<Long>> requestedSubChapterIdsByMain = new HashMap<Long, Set<Long>>();
+
 
         chapterPatchDto.forEach(m -> {
             requestedMainChapterIds.add(m.getChapterId());
+            Set<Long> subChapterIds = new HashSet<>();
             m.getSubChapters().forEach(s -> {
                 if (s.getChapterId() != null) {
-                    requestedSubChapterIds.add(s.getChapterId());
+                    subChapterIds.add(s.getChapterId());
+                }
+            });
+            requestedSubChapterIdsByMain.put(m.getChapterId(), subChapterIds);
+        });
+
+        // 데이터베이스에 존재하는 메인 챕터 및 서브 챕터 조회
+        List<VideoLessonsMainChapter> existingMainChapters = videoLessonsRepository
+                .findVideoMainChapters(videoLessonsId);
+        Map<Long, List<VideoLessonsSubChapter>> existingSubChaptersByMain = existingMainChapters.stream()
+                .collect(Collectors.toMap(
+                        VideoLessonsMainChapter::getVideoLessonsMainChapterId,
+                        mainChapter -> videoLessonsRepository
+                                .findVideoSubChaptersByMainChapterId(mainChapter.getVideoLessonsMainChapterId())));
+
+        // 기존 데이터베이스에 있는 메인 챕터 중 dto에 없는 메인 챕터 ID 삭제
+        existingMainChapters.forEach(existingMainChapter -> {
+            Long mainChapterId = existingMainChapter.getVideoLessonsMainChapterId();
+            if (!requestedMainChapterIds.contains(mainChapterId)) {
+                videoLessonsRepository.deleteVideoLessonsMainChapter(mainChapterId);
+            }
+        });
+
+        // 메인 챕터별로 존재하는 서브 챕터 중 dto에 없는 서브 챕터 ID 삭제
+        existingSubChaptersByMain.forEach((mainChapterId, existingSubChapters) -> {
+            Set<Long> requestedSubChapterIds = requestedSubChapterIdsByMain.getOrDefault(mainChapterId,
+                    Collections.emptySet());
+            existingSubChapters.forEach(subChapter -> {
+                if (!requestedSubChapterIds.contains(subChapter.getVideoLessonsSubChapterId())) {
+                    videoLessonsRepository.deleteVideoLessonsSubChapter(subChapter.getVideoLessonsSubChapterId());
                 }
             });
         });
-
-        // 데이터베이스에 존재하는 메인 챕터 및 서브 챕터 ID 목록 수집
-        List<VideoLessonsMainChapter> existingMainChapters = videoLessonsRepository
-                .findVideoMainChapters(videoLessonsId);
-        List<VideoLessonsSubChapter> existingSubChapters = videoLessonsRepository
-                .findVideoSubChaptersByMainChapterId(videoLessonsId);
-
-        Set<Long> existingMainChapterIds = existingMainChapters.stream()
-                .map(VideoLessonsMainChapter::getVideoLessonsMainChapterId)
-                .collect(Collectors.toSet());
-        Set<Long> existingSubChapterIds = existingSubChapters.stream()
-                .map(VideoLessonsSubChapter::getVideoLessonsSubChapterId)
-                .collect(Collectors.toSet());
-
-        // 삭제해야 하는 메인 챕터 및 서브 챕터 ID 찾기
-        Set<Long> mainChaptersToDelete = new HashSet<>(existingMainChapterIds);
-        mainChaptersToDelete.removeAll(requestedMainChapterIds);
-
-        Set<Long> subChaptersToDelete = new HashSet<>(existingSubChapterIds);
-        subChaptersToDelete.removeAll(requestedSubChapterIds);
-
-        // 삭제 실행
-        mainChaptersToDelete.forEach(videoLessonsRepository::deleteVideoLessonsMainChapter);
-        subChaptersToDelete.forEach(videoLessonsRepository::deleteVideoLessonsSubChapter);
 
         // 메인 챕터 및 서브 챕터 업데이트 또는 생성
         chapterPatchDto.forEach(m -> {
