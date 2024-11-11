@@ -50,6 +50,7 @@ public interface VideoLessonsRepository {
     Page<VideoLessonsUser> findAllVideoLessonsUser(Long userId, Pageable pageable);
 
     List<VideoThumbnail> findVideoThumbnailByVideoLessonsId(Long videoLessonsId);
+    
 
     void deleteVideoLessons(VideoLessons videoLessons);
     void deleteVideoLessonsCategory(Long videoLessonsCategoryId);

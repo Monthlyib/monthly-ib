@@ -23,8 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -120,20 +122,73 @@ public class VideoLessonsService {
         findVideo.update(dto, firstCategory, secondCategory, thirdCategory);
         VideoLessons saveVideo = videoLessonsRepository.save(findVideo);
 
-        chapterPatchDto.stream().forEach(m -> {
-            // 메인 챕터를 ID로 조회 및 검증 후 업데이트
-            VideoLessonsMainChapter main = verifyVideoLessonsMainChapter(m.getChapterId());
-            main.update(m);
-            VideoLessonsMainChapter saveMain = videoLessonsRepository.save(main);
+        // 요청으로 들어온 메인 챕터 및 서브 챕터 ID 목록 수집
+        Set<Long> requestedMainChapterIds = new HashSet<>();
+        Set<Long> requestedSubChapterIds = new HashSet<>();
 
+        chapterPatchDto.forEach(m -> {
+            requestedMainChapterIds.add(m.getChapterId());
             m.getSubChapters().forEach(s -> {
                 if (s.getChapterId() != null) {
-                    // 기존 서브 챕터 업데이트
+                    requestedSubChapterIds.add(s.getChapterId());
+                }
+            });
+        });
+
+        // 데이터베이스에 존재하는 메인 챕터 및 서브 챕터 ID 목록 수집
+        List<VideoLessonsMainChapter> existingMainChapters = videoLessonsRepository
+                .findVideoMainChapters(videoLessonsId);
+        List<VideoLessonsSubChapter> existingSubChapters = videoLessonsRepository
+                .findVideoSubChaptersByMainChapterId(videoLessonsId);
+
+        Set<Long> existingMainChapterIds = existingMainChapters.stream()
+                .map(VideoLessonsMainChapter::getVideoLessonsMainChapterId)
+                .collect(Collectors.toSet());
+        Set<Long> existingSubChapterIds = existingSubChapters.stream()
+                .map(VideoLessonsSubChapter::getVideoLessonsSubChapterId)
+                .collect(Collectors.toSet());
+
+        // 삭제해야 하는 메인 챕터 및 서브 챕터 ID 찾기
+        Set<Long> mainChaptersToDelete = new HashSet<>(existingMainChapterIds);
+        mainChaptersToDelete.removeAll(requestedMainChapterIds);
+
+        Set<Long> subChaptersToDelete = new HashSet<>(existingSubChapterIds);
+        subChaptersToDelete.removeAll(requestedSubChapterIds);
+
+        // 삭제 실행
+        mainChaptersToDelete.forEach(videoLessonsRepository::deleteVideoLessonsMainChapter);
+        subChaptersToDelete.forEach(videoLessonsRepository::deleteVideoLessonsSubChapter);
+
+        // 메인 챕터 및 서브 챕터 업데이트 또는 생성
+        chapterPatchDto.forEach(m -> {
+            VideoLessonsMainChapter saveMain;
+            if (m.getChapterId() != null) {
+                VideoLessonsMainChapter main = verifyVideoLessonsMainChapter(m.getChapterId());
+                main.update(m);
+                saveMain = videoLessonsRepository.save(main);
+            } else {
+                // Convert VideoLessonsChapterPatchDto to VideoLessonsChapterPostDto
+                VideoLessonsChapterPostDto newMainDto = new VideoLessonsChapterPostDto(
+                        m.getChapterStatus(),
+                        m.getChapterTitle(),
+                        m.getChapterIndex(),
+                        m.getSubChapters().stream()
+                                .map(sub -> new VideoLessonsSubChapterPostDto(
+                                        sub.getChapterStatus(),
+                                        sub.getChapterTitle(),
+                                        sub.getChapterIndex(),
+                                        sub.getVideoFileUrl()))
+                                .collect(Collectors.toList()));
+
+                VideoLessonsMainChapter newMain = VideoLessonsMainChapter.create(videoLessonsId, newMainDto);
+                saveMain = videoLessonsRepository.save(newMain);
+            }
+            m.getSubChapters().forEach(s -> {
+                if (s.getChapterId() != null) {
                     VideoLessonsSubChapter sub = verifyVideoLessonsSubChapter(s.getChapterId());
                     sub.update(s);
                     videoLessonsRepository.save(sub);
                 } else {
-                    // 새로운 서브 챕터 생성
                     VideoLessonsSubChapterPostDto newSubDto = VideoLessonsSubChapterPostDto.builder()
                             .chapterStatus(s.getChapterStatus())
                             .chapterTitle(s.getChapterTitle())
@@ -148,7 +203,6 @@ public class VideoLessonsService {
                     videoLessonsRepository.save(newSub);
                 }
             });
-
         });
 
         // 업데이트된 비디오 강의와 챕터 정보를 포함한 응답 반환
