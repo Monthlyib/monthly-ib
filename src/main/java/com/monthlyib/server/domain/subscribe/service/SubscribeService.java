@@ -58,12 +58,29 @@ public class SubscribeService {
         return SubscribeUserResponseDto.of(saveSubUser);
     }
 
-    public SubscribeUserResponseDto updateSubscribeUser(Long subscribeUserId, SubscribeUserPatchDto dto, User user) {
+    public SubscribeUserResponseDto updateSubscribeUser(Long newsubscribeUserId, Long subscribeUserId, SubscribeUserPatchDto dto, User user) {
+        // 기존의 구독 User 확인
         SubscribeUser findSubUser = verifySubUser(subscribeUserId);
+        
+        // newsubscribeUserId가 null이 아니고 기존 subscribeUserId와 다를 경우 변경
+        if (newsubscribeUserId != null && !newsubscribeUserId.equals(subscribeUserId)) {
+            // 새로운 구독 User ID 확인
+            SubscribeUser newSubUser = verifySubUser(newsubscribeUserId);
+            
+            // 기존 구독을 새로운 구독 ID로 변경
+            findSubUser.setSubscribeUserId(newSubUser.getSubscribeUserId());
+        }
+        
+        // 구독 정보를 업데이트
         SubscribeUser update = findSubUser.update(dto);
+        
+        // 변경된 구독 정보를 저장
         SubscribeUser saveSubUser = subscribeRepository.saveSubscribeUser(update);
+        
+        // 응답 DTO로 반환
         return SubscribeUserResponseDto.of(saveSubUser);
     }
+    
 
     public Page<SubscribeUserResponseDto> findAllSubscribeUser(Long userId, int page, User user) {
         return subscribeRepository.findAllSubscribeByUserId(userId, PageRequest.of(page, 10, Sort.by("createAt").descending()))

@@ -1,6 +1,7 @@
 package com.monthlyib.server.api.subscribe.controller;
 
 
+import com.monthlyib.server.annotation.UserSession;
 import com.monthlyib.server.api.subscribe.dto.SubscribePostDto;
 import com.monthlyib.server.api.subscribe.dto.SubscribeResponseDto;
 import com.monthlyib.server.api.subscribe.dto.SubscribeUserPatchDto;
@@ -69,8 +70,12 @@ public class SubscribeApiController implements SubscribeApiControllerIfs{
 
     @Override
     @PatchMapping("/api/subscribe/user/{subscribeUserId}")
-    public ResponseEntity<ResponseDto<?>> patchSubscribeUser(Long subscribeUserId, SubscribeUserPatchDto requestDto, User user) {
-        SubscribeUserResponseDto response = subscribeService.updateSubscribeUser(subscribeUserId, requestDto, user);
+    public ResponseEntity<ResponseDto<?>> patchSubscribeUser(
+        @PathVariable Long subscribeUserId,
+        @RequestParam(required = false) Long newsubscribeUserId,
+        @RequestBody SubscribeUserPatchDto requestDto,
+        @UserSession User user) {
+        SubscribeUserResponseDto response = subscribeService.updateSubscribeUser(newsubscribeUserId,subscribeUserId, requestDto, user);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 

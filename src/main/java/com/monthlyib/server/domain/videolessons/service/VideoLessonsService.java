@@ -22,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
@@ -130,7 +129,6 @@ public class VideoLessonsService {
         Set<Long> requestedMainChapterIds = new HashSet<>();
         Map<Long, Set<Long>> requestedSubChapterIdsByMain = new HashMap<Long, Set<Long>>();
 
-
         chapterPatchDto.forEach(m -> {
             requestedMainChapterIds.add(m.getChapterId());
             Set<Long> subChapterIds = new HashSet<>();
@@ -145,6 +143,8 @@ public class VideoLessonsService {
         // 데이터베이스에 존재하는 메인 챕터 및 서브 챕터 조회
         List<VideoLessonsMainChapter> existingMainChapters = videoLessonsRepository
                 .findVideoMainChapters(videoLessonsId);
+
+        // 메인 챕터와 서브 챕터를 Map으로 저장하여 로그에 출력
         Map<Long, List<VideoLessonsSubChapter>> existingSubChaptersByMain = existingMainChapters.stream()
                 .collect(Collectors.toMap(
                         VideoLessonsMainChapter::getVideoLessonsMainChapterId,
@@ -163,6 +163,9 @@ public class VideoLessonsService {
         existingSubChaptersByMain.forEach((mainChapterId, existingSubChapters) -> {
             Set<Long> requestedSubChapterIds = requestedSubChapterIdsByMain.getOrDefault(mainChapterId,
                     Collections.emptySet());
+            log.info("mainChapterId: {}, existingSubChapters: {}, requestedSubChapterIds: {}", mainChapterId,
+                    existingSubChapters.stream().map(VideoLessonsSubChapter::getVideoLessonsSubChapterId).toList(),
+                    requestedSubChapterIds);
             existingSubChapters.forEach(subChapter -> {
                 if (!requestedSubChapterIds.contains(subChapter.getVideoLessonsSubChapterId())) {
                     videoLessonsRepository.deleteVideoLessonsSubChapter(subChapter.getVideoLessonsSubChapterId());

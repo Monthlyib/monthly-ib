@@ -152,9 +152,11 @@ public interface SubscribeApiControllerIfs {
     })
     ResponseEntity<ResponseDto<?>> patchSubscribeUser(
             @PathVariable @Parameter(description = "회원의 현재 Subscribe Data 식별자", required = true) Long subscribeUserId,
+            @RequestParam(required = false,defaultValue = "null") @Parameter(description = "새로운 구독 ID", required = false) Long newsubscribeUserId,
             @RequestBody SubscribeUserPatchDto requestDto,
             @UserSession @Parameter(hidden = true) User user
     );
+    
 
     @Operation(summary = "구독 상품 삭제(관리자)", description = "구독 상품 삭제 요청")
     @ApiResponses({
