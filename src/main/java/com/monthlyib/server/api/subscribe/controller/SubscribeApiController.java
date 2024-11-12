@@ -72,10 +72,10 @@ public class SubscribeApiController implements SubscribeApiControllerIfs{
     @PatchMapping("/api/subscribe/user/{subscribeUserId}")
     public ResponseEntity<ResponseDto<?>> patchSubscribeUser(
         @PathVariable Long subscribeUserId,
-        @RequestParam(required = false) Long newsubscribeUserId,
+        @RequestParam(required = false) Long newsubscribeId,
         @RequestBody SubscribeUserPatchDto requestDto,
         @UserSession User user) {
-        SubscribeUserResponseDto response = subscribeService.updateSubscribeUser(newsubscribeUserId,subscribeUserId, requestDto, user);
+        SubscribeUserResponseDto response = subscribeService.updateSubscribeUser(newsubscribeId,subscribeUserId, requestDto, user);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 
