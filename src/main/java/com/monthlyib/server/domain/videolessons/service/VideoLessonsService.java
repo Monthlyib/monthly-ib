@@ -13,6 +13,7 @@ import com.monthlyib.server.domain.videolessons.entity.*;
 import com.monthlyib.server.domain.videolessons.repository.VideoLessonsRepository;
 import com.monthlyib.server.exception.ServiceLogicException;
 import com.monthlyib.server.file.service.FileService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -331,22 +332,32 @@ public class VideoLessonsService {
         SubscribeUser findSubUser = subscribeRepository
                 .findSubscribeUserByUserIdAndStatus(user.getUserId(), SubscribeStatus.ACTIVE)
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
+    
         if (findSubUser.getVideoLessonsCount() > 0) {
-            int videoLessonsCount = findSubUser.getVideoLessonsCount();
-            findSubUser.setVideoLessonsCount(videoLessonsCount - 1);
-            findSubUser.setVideoLessonsIdList(List.of(videoLessonsId));
-            subscribeRepository.saveSubscribeUser(findSubUser);
+            log.info("Before saving - videoLessonsCount: {}", findSubUser.getVideoLessonsCount());
+            findSubUser.setVideoLessonsCount(findSubUser.getVideoLessonsCount() - 1);
+    
+            List<Long> videoLessonsIdList = new ArrayList<>(findSubUser.getVideoLessonsIdList());
+            videoLessonsIdList.add(videoLessonsId);
+            findSubUser.setVideoLessonsIdList(videoLessonsIdList);
+    
+            log.info("Attempting to save SubscribeUser: {}", findSubUser);
+            SubscribeUser savedSubUser = subscribeRepository.saveSubscribeUser(findSubUser);
+            log.info("After saving SubscribeUser: {}", savedSubUser);
         } else {
             throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
         }
+    
         VideoLessonsUser newVideoLessonsUser = VideoLessonsUser.builder()
                 .userId(user.getUserId())
                 .videoLessonsId(videoLessonsId)
                 .status(VideoLessonsUserStatus.PROGRESS)
                 .build();
+    
         VideoLessonsUser saveVideoLessonsUser = videoLessonsRepository.save(newVideoLessonsUser);
         return findVideoLessons(videoLessonsId, 0);
     }
+    
 
     private VideoLessonsReply verifyVideoLessonsReply(Long videoLessonsReplyId) {
         return videoLessonsRepository.findVideoReplyById(videoLessonsReplyId)
