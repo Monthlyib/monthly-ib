@@ -45,7 +45,7 @@ public class SubscribeService {
         verifyActiveSubUserThrowError(userId);
         Subscribe subscribe = verifySubscribe(subscribeId);
         User findUser = userService.findUserEntity(userId);
-        SubscribeUser newSubUser = SubscribeUser.create(subscribe, findUser);
+        SubscribeUser newSubUser = SubscribeUser.create(subscribe, findUser, SubscribeStatus.ACTIVE);
         SubscribeUser saveSubUser = subscribeRepository.saveSubscribeUser(newSubUser);
         return SubscribeUserResponseDto.of(saveSubUser);
     }
