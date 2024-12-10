@@ -35,4 +35,6 @@ public class SubscribePostDto {
     private String color;
     private String fontColor;
 
+    private boolean isPremium;
+
 }

@@ -50,6 +50,9 @@ public class Subscribe extends Auditable {
     @Column(nullable = false)
     private String fontColor;
 
+    @Column(nullable = false)
+    private boolean isPremium;
+
     @ElementCollection(fetch = FetchType.EAGER)
     private List<Long> videoLessonsIdList;
 
@@ -65,6 +68,7 @@ public class Subscribe extends Auditable {
                 .videoLessonsIdList(dto.getVideoLessonsIdList())
                 .color(dto.getColor())
                 .fontColor(dto.getFontColor())
+                .isPremium(dto.isPremium())
                 .build();
     }
 
@@ -79,6 +83,7 @@ public class Subscribe extends Auditable {
         this.videoLessonsIdList = Optional.ofNullable(dto.getVideoLessonsIdList()).orElse(this.videoLessonsIdList);
         this.color = Optional.ofNullable(dto.getColor()).orElse(this.color);
         this.fontColor = Optional.ofNullable(dto.getFontColor()).orElse(this.fontColor);
+        this.isPremium = Optional.ofNullable(dto.isPremium()).orElse(this.isPremium);
         return this;
     }
 
