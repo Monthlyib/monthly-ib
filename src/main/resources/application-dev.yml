@@ -91,3 +91,6 @@ oauth:
       auth: https://nid.naver.com
       api: https://openapi.naver.com
     secret: ${NAVER_SECRET_KEY}
+logging:
+  level:
+    root: WARN

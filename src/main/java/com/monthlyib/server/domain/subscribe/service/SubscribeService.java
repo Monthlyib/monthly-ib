@@ -88,6 +88,7 @@ public class SubscribeService {
 
     public SubscribeResponseDto createSubscribe(SubscribePostDto dto, User user) {
         Subscribe newSub = Subscribe.create(dto);
+        
         return SubscribeResponseDto.of(subscribeRepository.save(newSub));
     }
 

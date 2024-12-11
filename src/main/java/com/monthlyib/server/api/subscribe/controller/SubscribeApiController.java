@@ -12,6 +12,10 @@ import com.monthlyib.server.dto.PageResponseDto;
 import com.monthlyib.server.dto.ResponseDto;
 import com.monthlyib.server.dto.Result;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -19,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @Controller
 @RequiredArgsConstructor
 @RequestMapping
@@ -50,6 +55,8 @@ public class SubscribeApiController implements SubscribeApiControllerIfs{
     @Override
     @PostMapping("/api/subscribe")
     public ResponseEntity<ResponseDto<?>> postSubscribe(SubscribePostDto requestDto, User user) {
+        log.warn("# Create Subscribe Entity");
+        log.warn("# dto: {}", requestDto);
         SubscribeResponseDto response = subscribeService.createSubscribe(requestDto, user);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }

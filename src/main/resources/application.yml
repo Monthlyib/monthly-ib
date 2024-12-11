@@ -1,6 +1,8 @@
 server:
   port: 8987
 spring:
+  # profiles:
+  #   active: dev
   servlet:
     multipart:
       max-file-size: 300MB

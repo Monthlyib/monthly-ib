@@ -43,6 +43,8 @@ public class SubscribeResponseDto {
 
     private LocalDateTime updateAt;
 
+    private boolean premium;
+
     public static SubscribeResponseDto of(Subscribe subscribe) {
         return SubscribeResponseDto.builder()
                 .subscriberId(subscribe.getSubscribeId())
@@ -58,6 +60,7 @@ public class SubscribeResponseDto {
                 .fontColor(subscribe.getFontColor())
                 .createAt(subscribe.getCreateAt())
                 .updateAt(subscribe.getUpdateAt())
+                .premium(subscribe.isPremium())
                 .build();
     }
 }

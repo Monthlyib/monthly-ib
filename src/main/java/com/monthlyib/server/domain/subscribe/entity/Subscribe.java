@@ -4,12 +4,14 @@ import com.monthlyib.server.api.subscribe.dto.SubscribePostDto;
 import com.monthlyib.server.audit.Auditable;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.swing.text.html.Option;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Setter
 @Getter
 @Entity
@@ -50,13 +52,15 @@ public class Subscribe extends Auditable {
     @Column(nullable = false)
     private String fontColor;
 
-    @Column(nullable = false)
-    private boolean isPremium;
+    @Column(name = "is_premium", nullable = false, columnDefinition = "BIT(1)")
+    private boolean premium;
 
     @ElementCollection(fetch = FetchType.EAGER)
     private List<Long> videoLessonsIdList;
 
     public static Subscribe create(SubscribePostDto dto) {
+        log.warn("# Create Subscribe Entity");
+        log.warn("# dto: {}", dto);
         return Subscribe.builder()
                 .title(dto.getTitle())
                 .content(dto.getContent())
@@ -68,7 +72,7 @@ public class Subscribe extends Auditable {
                 .videoLessonsIdList(dto.getVideoLessonsIdList())
                 .color(dto.getColor())
                 .fontColor(dto.getFontColor())
-                .isPremium(dto.isPremium())
+                .premium(dto.isPremium())
                 .build();
     }
 
@@ -83,7 +87,7 @@ public class Subscribe extends Auditable {
         this.videoLessonsIdList = Optional.ofNullable(dto.getVideoLessonsIdList()).orElse(this.videoLessonsIdList);
         this.color = Optional.ofNullable(dto.getColor()).orElse(this.color);
         this.fontColor = Optional.ofNullable(dto.getFontColor()).orElse(this.fontColor);
-        this.isPremium = Optional.ofNullable(dto.isPremium()).orElse(this.isPremium);
+        this.premium = Optional.ofNullable(dto.isPremium()).orElse(this.premium);
         return this;
     }
 
