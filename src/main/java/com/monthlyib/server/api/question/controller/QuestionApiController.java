@@ -39,7 +39,15 @@ public class QuestionApiController implements QuestionApiControllerIfs{
     @Override
     @GetMapping("/api/question")
     public ResponseEntity<PageResponseDto<?>> getMyQuestionList(QuestionSearchDto requestDto, int page, User user) {
-        Page<QuestionResponseDto> response = questionService.findAllQuestionByUserId(page, requestDto, user.getUserId());
+        Page<QuestionResponseDto> response;
+    
+        if ("ADMIN".equals(user.getAuthority())) {
+            // ADMIN이면 모든 질문 조회
+            response = questionService.findAllQuestion(page, requestDto);
+        } else {
+            // 일반 사용자일 경우 본인의 질문만 조회
+            response = questionService.findAllQuestionByUserId(page, requestDto, user.getUserId());
+        }
         return ResponseEntity.ok(PageResponseDto.of(response, response.getContent(), Result.ok()));
     }
 
