@@ -51,7 +51,11 @@ public class VideoLessonsService {
     }
 
     public VideoLessonsResponseDto findVideoLessons(Long videoLessonsId, int page) {
+    
+        // VideoLesson 데이터를 가져옴
         VideoLessons findVideoLessons = verifyVideoLessons(videoLessonsId);
+    
+        // 메인 챕터와 서브 챕터 데이터 가져오기
         List<VideoLessonsMainChapter> videoMainChapters = videoLessonsRepository.findVideoMainChapters(videoLessonsId);
         List<VideoLessonsChapterResponseDto> mainChapter = new ArrayList<>();
         videoMainChapters.forEach(c -> {
@@ -60,10 +64,13 @@ public class VideoLessonsService {
                     .stream().map(VideoLessonsSubChapterResponseDto::of).sorted().toList();
             mainChapter.add(VideoLessonsChapterResponseDto.of(c, sub));
         });
-
+    
+        // 수강후기 데이터 가져오기
         Page<VideoLessonsReplyResponseDto> reply = videoLessonsRepository
                 .findVideoReply(videoLessonsId, PageRequest.of(page, 10, Sort.by("createAt").descending()))
                 .map(VideoLessonsReplyResponseDto::of);
+    
+        // 응답 생성
         return VideoLessonsResponseDto.of(findVideoLessons, mainChapter, reply);
     }
 
@@ -332,6 +339,12 @@ public class VideoLessonsService {
         SubscribeUser findSubUser = subscribeRepository
                 .findSubscribeUserByUserIdAndStatus(user.getUserId(), SubscribeStatus.ACTIVE)
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
+    
+        // 현재 요청된 videoLessonsId가 사용자가 이미 수강 중인지 확인
+        if (findSubUser.getVideoLessonsIdList().contains(videoLessonsId)) {
+            log.info("User is already enrolled in video lesson ID: {}", videoLessonsId);
+            return findVideoLessons(videoLessonsId, 0); // 이미 수강 중인 경우 정상 상태로 종료
+        }
     
         if (findSubUser.getVideoLessonsCount() > 0) {
             log.info("Before saving - videoLessonsCount: {}", findSubUser.getVideoLessonsCount());
