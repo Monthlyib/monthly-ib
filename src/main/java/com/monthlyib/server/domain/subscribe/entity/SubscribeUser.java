@@ -81,6 +81,9 @@ public class SubscribeUser extends Auditable {
     @Enumerated(EnumType.STRING)
     private SubscribeStatus subscribeStatus;
 
+    @Column(name = "is_premium", nullable = false, columnDefinition = "BIT(1)")
+    private boolean premium;
+
     public static SubscribeUser create(Subscribe subscribe, User user) {
         return SubscribeUser.builder()
                 .userId(user.getUserId())
@@ -99,6 +102,7 @@ public class SubscribeUser extends Auditable {
                 .subscriptionDate(LocalDate.now())
                 .subscriptionDay(LocalDate.now().getDayOfMonth())
                 .subscribeStatus(SubscribeStatus.WAIT)
+                .premium(subscribe.isPremium())
                 .build();
     }
 
@@ -120,6 +124,7 @@ public class SubscribeUser extends Auditable {
                 .subscriptionDate(LocalDate.now())
                 .subscriptionDay(LocalDate.now().getDayOfMonth())
                 .subscribeStatus(subscribeStatus)
+                .premium(subscribe.isPremium())
                 .build();
     }
 

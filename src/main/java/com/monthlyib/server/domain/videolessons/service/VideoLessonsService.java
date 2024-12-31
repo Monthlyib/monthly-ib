@@ -336,6 +336,7 @@ public class VideoLessonsService {
     }
 
     public VideoLessonsResponseDto createVideoLessonsUser(User user, Long videoLessonsId) {
+        // 사용자의 구독 정보를 가져옴
         SubscribeUser findSubUser = subscribeRepository
                 .findSubscribeUserByUserIdAndStatus(user.getUserId(), SubscribeStatus.ACTIVE)
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
@@ -346,21 +347,38 @@ public class VideoLessonsService {
             return findVideoLessons(videoLessonsId, 0); // 이미 수강 중인 경우 정상 상태로 종료
         }
     
-        if (findSubUser.getVideoLessonsCount() > 0) {
-            log.info("Before saving - videoLessonsCount: {}", findSubUser.getVideoLessonsCount());
-            findSubUser.setVideoLessonsCount(findSubUser.getVideoLessonsCount() - 1);
-    
+        // 사용자가 프리미엄 사용자일 경우
+        if (findSubUser.isPremium() == true) {
+            log.info("User is a premium subscriber. Enrolling without modifying videoLessonsCount.");
+            
+            // 프리미엄 사용자도 videoLessonsId를 추가
             List<Long> videoLessonsIdList = new ArrayList<>(findSubUser.getVideoLessonsIdList());
             videoLessonsIdList.add(videoLessonsId);
             findSubUser.setVideoLessonsIdList(videoLessonsIdList);
     
-            log.info("Attempting to save SubscribeUser: {}", findSubUser);
+            // 변경사항 저장
             SubscribeUser savedSubUser = subscribeRepository.saveSubscribeUser(findSubUser);
-            log.info("After saving SubscribeUser: {}", savedSubUser);
+            log.info("Premium user updated: {}", savedSubUser);
         } else {
-            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+            // 일반 사용자일 경우 수강권이 있는지 확인
+            if (findSubUser.getVideoLessonsCount() > 0) {
+                log.info("Before saving - videoLessonsCount: {}", findSubUser.getVideoLessonsCount());
+                findSubUser.setVideoLessonsCount(findSubUser.getVideoLessonsCount() - 1);
+    
+                List<Long> videoLessonsIdList = new ArrayList<>(findSubUser.getVideoLessonsIdList());
+                videoLessonsIdList.add(videoLessonsId);
+                findSubUser.setVideoLessonsIdList(videoLessonsIdList);
+    
+                log.info("Attempting to save SubscribeUser: {}", findSubUser);
+                SubscribeUser savedSubUser = subscribeRepository.saveSubscribeUser(findSubUser);
+                log.info("After saving SubscribeUser: {}", savedSubUser);
+            } else {
+                // 수강권이 없을 경우 예외 처리
+                throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+            }
         }
     
+        // 수강자 정보를 VideoLessonsUser로 저장
         VideoLessonsUser newVideoLessonsUser = VideoLessonsUser.builder()
                 .userId(user.getUserId())
                 .videoLessonsId(videoLessonsId)
