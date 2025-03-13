@@ -71,6 +71,7 @@ dependencies {
 	// https://mvnrepository.com/artifact/org.apache.clerezza.ext/org.json.simple
 	implementation 'org.apache.clerezza.ext:org.json.simple:0.4'
 
+	runtimeOnly 'org.springframework.boot:spring-boot-devtools'
 }
 
 tasks.named('test') {

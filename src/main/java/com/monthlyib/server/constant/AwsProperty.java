@@ -13,7 +13,8 @@ public enum AwsProperty {
     VIDEO_LESSONS_THUMBNAIL("video-lessons/thumbnail/"),
     STORAGE("storage/"),
     USER_IMAGE("user/image/"),
-
+    AIIO_SCRIPT("aiio/script/"),
+    AIIO_AUDIO("aiio/audio/"),
     ZIP_DIR_NAME("zip/");
 
     private final String name;

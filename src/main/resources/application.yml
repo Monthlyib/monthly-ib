@@ -1,5 +1,6 @@
 server:
   port: 8987
+
 spring:
   # profiles:
   #   active: dev
@@ -23,7 +24,6 @@ spring:
     defer-datasource-initialization: true
     hibernate:
       ddl-auto: update
-    #    show-sql: true
     properties:
       hibernate:
         format_sql: true
@@ -37,6 +37,7 @@ spring:
     redis:
       host: ${AWS_ELASTICACHE_END_POINT}
       port: 16379
+
 logging.level:
   org.hibernate.SQL: trace
   org:
@@ -44,9 +45,10 @@ logging.level:
       type:
         descriptor:
           sql:
-            org.hibernate.type.descriptor.sql.BasicBinder : trace
+            org.hibernate.type.descriptor.sql.BasicBinder: trace
     springframework:
-      web.servlet : trace
+      web.servlet: trace
+
 mail:
   smtp:
     host: smtp.gmail.com
@@ -58,12 +60,13 @@ mail:
       enable: true
   subject:
     user:
-      registration: Thank you for joining our service!
-      verification: Please complete verification. Thank you!
+      registration: "Thank you for joining our service!"
+      verification: "Please complete verification. Thank you!"
   template:
     name:
       user:
         join: email-registration-member
+
 cloud:
   aws:
     s3:
@@ -73,6 +76,7 @@ cloud:
       static: ap-northeast-2
     stack:
       auto: false
+
 springdoc:
   swagger-ui:
     path: /docs
