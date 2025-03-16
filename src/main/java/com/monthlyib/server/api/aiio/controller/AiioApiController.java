@@ -8,11 +8,14 @@ import com.monthlyib.server.domain.aiio.service.AiioService;
 import com.monthlyib.server.dto.ResponseDto;
 import com.monthlyib.server.dto.Result;
 import com.monthlyib.server.domain.user.entity.User;
+import com.monthlyib.server.annotation.UserSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 @Controller
 @RequiredArgsConstructor
@@ -28,12 +31,8 @@ public class AiioApiController {
     @PostMapping(value = "/api/aiio", consumes = "multipart/form-data")
     public ResponseEntity<ResponseDto<?>> postAiioFeedback(
             @ModelAttribute AiioPostDto postDto,
-            @RequestPart("scriptFile") MultipartFile scriptFile,
-            @RequestPart("audioFile") MultipartFile audioFile,
-            User user) {
-    
-        VoiceFeedback voiceFeedback = aiioService.createFeedback(postDto, scriptFile, audioFile, user);
-        // VoiceFeedback을 AiioResponseDto로 변환
+            @UserSession User user) {
+        VoiceFeedback voiceFeedback = aiioService.createFeedback(postDto, user);
         AiioResponseDto responseDto = AiioResponseDto.of(voiceFeedback);
         return ResponseEntity.ok(ResponseDto.of(responseDto, Result.ok()));
     }
@@ -44,10 +43,8 @@ public class AiioApiController {
     @PatchMapping("/api/aiio")
     public ResponseEntity<ResponseDto<?>> patchAiioFeedback(
             @ModelAttribute AiioPatchDto patchDto,
-            User user) {
-
+            @UserSession User user) {
         VoiceFeedback voiceFeedback = aiioService.updateFeedback(patchDto, user);
-        // 수정된 VoiceFeedback을 AiioResponseDto로 변환
         AiioResponseDto responseDto = AiioResponseDto.of(voiceFeedback);
         return ResponseEntity.ok(ResponseDto.of(responseDto, Result.ok()));
     }

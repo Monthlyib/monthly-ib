@@ -70,8 +70,11 @@ dependencies {
 
 	// https://mvnrepository.com/artifact/org.apache.clerezza.ext/org.json.simple
 	implementation 'org.apache.clerezza.ext:org.json.simple:0.4'
+	implementation 'jakarta.xml.bind:jakarta.xml.bind-api:3.0.1'
+    runtimeOnly 'org.glassfish.jaxb:jaxb-runtime:3.0.1'
 
 	runtimeOnly 'org.springframework.boot:spring-boot-devtools'
+
 }
 
 tasks.named('test') {
