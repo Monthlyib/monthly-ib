@@ -3,7 +3,7 @@ version: '3.3'
 services:
   app:
     build:
-      context: .
+      context: .docker exec -it web-server-app env | grep OPENAI_API_KEY
       dockerfile: Dockerfile
     container_name: web-server-app
     ports:
