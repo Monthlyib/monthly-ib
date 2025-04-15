@@ -54,4 +54,13 @@ public class AiChapterTestRepositoryImpl extends QuerydslRepositorySupport imple
     public void delete(AiChapterTest test) {
         jpaRepository.delete(test);
     }
+
+    @Override
+    public List<AiChapterTest> findAllBySubjectAndChapter(String subject, String chapter) {
+        QAiChapterTest qTest = QAiChapterTest.aiChapterTest;
+
+        return from(qTest)
+                .where(qTest.subject.eq(subject).and(qTest.chapter.eq(chapter)))
+                .fetch();
+    }
 }

@@ -20,6 +20,7 @@ import com.monthlyib.server.api.aiio.dto.AiioResponseDto;
 import com.monthlyib.server.api.aiio.dto.AiChapterTestResponseDto;
 import com.monthlyib.server.api.aiio.dto.AiChapterTestDto;
 import com.monthlyib.server.api.aiio.dto.AiChapterTestSearchDto; // Added import
+import com.monthlyib.server.api.aiio.dto.QuizSessionStartRequestDto; // Added import
 
 import com.monthlyib.server.domain.aiio.entity.VoiceFeedback;
 import com.monthlyib.server.domain.aiio.service.AiioService;
@@ -120,6 +121,65 @@ public class AiioApiController {
             @UserSession User user) {
         AiChapterTestResponseDto responseDto = aiChapterTestService.findById(id);
         return ResponseEntity.ok(ResponseDto.of(responseDto, Result.ok()));
+    }
+
+    @PostMapping("/api/quiz/start")
+    public ResponseEntity<ResponseDto<?>> startQuizSession(
+            @RequestBody QuizSessionStartRequestDto request,
+            @UserSession User user
+    ) {
+        var sessionResponse = aiChapterTestService.startQuizSession(request, user);
+        return ResponseEntity.ok(ResponseDto.of(sessionResponse, Result.ok()));
+    }
+
+    @GetMapping("/api/quiz/active")
+    public ResponseEntity<ResponseDto<?>> checkActiveQuizSession(
+            @RequestParam("subject") String subject,
+            @RequestParam("chapter") String chapter,
+            @UserSession User user
+    ) {
+        var activeSession = aiChapterTestService.findActiveQuizSession(user, subject, chapter);
+        return ResponseEntity.ok(ResponseDto.of(activeSession, Result.ok()));
+    }
+
+    @PatchMapping("/api/quiz/answer")
+    public ResponseEntity<ResponseDto<?>> submitQuizAnswer(
+            @RequestParam("quizSessionId") Long quizSessionId,
+            @RequestParam("questionId") Long questionId,
+            @RequestParam("userAnswer") String userAnswer,
+            @RequestParam("elapsedTime") int elapsedTime,
+            @UserSession User user
+    ) {
+        aiChapterTestService.submitAnswer(quizSessionId, questionId, userAnswer, elapsedTime);
+        return ResponseEntity.ok(ResponseDto.of("답안이 저장되었습니다.", Result.ok()));
+    }
+
+    @PatchMapping("/api/quiz/submit/{quizSessionId}")
+    public ResponseEntity<ResponseDto<?>> submitQuizSession(
+            @PathVariable("quizSessionId") Long quizSessionId,
+            @UserSession User user
+    ) {
+        aiChapterTestService.submitQuizSession(quizSessionId);
+        return ResponseEntity.ok(ResponseDto.of("시험이 제출되었습니다.", Result.ok()));
+    }
+
+    @GetMapping("/api/quiz/answer-status")
+    public ResponseEntity<ResponseDto<?>> getQuizAnswerStatus(
+            @RequestParam("quizSessionId") Long quizSessionId,
+            @RequestParam("questionId") Long questionId,
+            @UserSession User user
+    ) {
+        var status = aiChapterTestService.getAnswerStatus(quizSessionId, questionId);
+        return ResponseEntity.ok(ResponseDto.of(status, Result.ok()));
+    }
+
+    @GetMapping("/api/quiz/result/{quizSessionId}")
+    public ResponseEntity<ResponseDto<?>> getQuizResult(
+            @PathVariable("quizSessionId") Long quizSessionId,
+            @UserSession User user
+    ) {
+        var result = aiChapterTestService.getQuizResult(quizSessionId);
+        return ResponseEntity.ok(ResponseDto.of(result, Result.ok()));
     }
 
 }
