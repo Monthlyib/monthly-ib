@@ -15,7 +15,8 @@ public enum AwsProperty {
     USER_IMAGE("user/image/"),
     AIIO_SCRIPT("aiio/script/"),
     AIIO_AUDIO("aiio/audio/"),
-    ZIP_DIR_NAME("zip/");
+    ZIP_DIR_NAME("zip/"),
+    AICHAPTER_IMAGE("aiio/chapter-test/image/");
 
     private final String name;
 
