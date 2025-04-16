@@ -1,10 +1,12 @@
 package com.monthlyib.server.domain.aiio.repository;
 
-import com.monthlyib.server.domain.aiio.entity.QuizSessionQuestion;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
+import com.monthlyib.server.domain.aiio.entity.QuizSessionQuestion;
+
+import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
@@ -27,5 +29,15 @@ public class QuizSessionQuestionRepositoryImpl implements QuizSessionQuestionRep
     @Override
     public void delete(QuizSessionQuestion question) {
         jpaRepository.delete(question);
+    }
+
+    @Override
+    public List<QuizSessionQuestion> findByQuizSessionIdWithChapterTest(Long quizSessionId) {
+        return jpaRepository.findByQuizSessionIdWithChapterTest(quizSessionId);
+    }
+
+    @Override
+    public List<QuizSessionQuestion> findWithChapterTestByQuizSessionId(Long quizSessionId) {
+        return jpaRepository.findWithChapterTestByQuizSessionId(quizSessionId);
     }
 }

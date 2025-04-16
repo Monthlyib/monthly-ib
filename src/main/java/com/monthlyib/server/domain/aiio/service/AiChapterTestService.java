@@ -1,30 +1,34 @@
 package com.monthlyib.server.domain.aiio.service;
 
-import com.monthlyib.server.api.aiio.dto.AiChapterTestDto;
-import com.monthlyib.server.api.aiio.dto.AiChapterTestResponseDto;
-import com.monthlyib.server.api.aiio.dto.QuizSessionStartRequestDto;
-import com.monthlyib.server.api.aiio.dto.QuizSessionStartResponseDto;
-import com.monthlyib.server.api.aiio.dto.QuizAnswerStatusResponseDto;
-import com.monthlyib.server.api.aiio.dto.QuizResultResponseDto;
-import com.monthlyib.server.domain.aiio.entity.AiChapterTest;
-import com.monthlyib.server.domain.aiio.entity.QuizSession;
-import com.monthlyib.server.domain.aiio.entity.QuizSessionQuestion;
-import com.monthlyib.server.domain.aiio.repository.AiChapterTestRepository;
-import com.monthlyib.server.domain.aiio.repository.QuizSessionQuestionRepository;
-import com.monthlyib.server.domain.aiio.repository.QuizSessionRepository;
-import com.monthlyib.server.constant.AwsProperty;
-import com.monthlyib.server.file.service.FileService;
-import com.monthlyib.server.domain.user.entity.User;
-import lombok.RequiredArgsConstructor;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
+import com.monthlyib.server.api.aiio.dto.AiChapterTestDto;
+import com.monthlyib.server.api.aiio.dto.AiChapterTestResponseDto;
+import com.monthlyib.server.api.aiio.dto.QuizAnswerStatusResponseDto;
+import com.monthlyib.server.api.aiio.dto.QuizResultResponseDto;
+import com.monthlyib.server.api.aiio.dto.QuizSessionStartRequestDto;
+import com.monthlyib.server.api.aiio.dto.QuizSessionStartResponseDto;
+import com.monthlyib.server.constant.AwsProperty;
+import com.monthlyib.server.constant.ErrorCode;
+import com.monthlyib.server.domain.aiio.entity.AiChapterTest;
+import com.monthlyib.server.domain.aiio.entity.QuizSession;
+import com.monthlyib.server.domain.aiio.entity.QuizSessionQuestion;
+import com.monthlyib.server.domain.aiio.repository.AiChapterTestRepository;
+import com.monthlyib.server.domain.aiio.repository.QuizSessionQuestionRepository;
+import com.monthlyib.server.domain.aiio.repository.QuizSessionRepository;
+import com.monthlyib.server.domain.user.entity.User;
+import com.monthlyib.server.exception.ServiceLogicException;
+import com.monthlyib.server.file.service.FileService;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -116,7 +120,7 @@ public class AiChapterTestService {
         List<AiChapterTest> availableQuestions = aiChapterTestRepository.findAllBySubjectAndChapter(request.getSubject(), request.getChapter());
 
         if (availableQuestions.size() < request.getQuestionCount()) {
-            throw new IllegalArgumentException("문제 수가 부족하여 퀴즈를 생성할 수 없습니다.");
+            throw new ServiceLogicException(ErrorCode.NOT_ENOUGH_QUESTION);
         }
 
         Collections.shuffle(availableQuestions);
@@ -142,7 +146,7 @@ public class AiChapterTestService {
             quizSessionQuestionRepository.save(quizQuestion);
         });
 
-        return QuizSessionStartResponseDto.of(savedSession, selectedQuestions);
+        return QuizSessionStartResponseDto.ofWithAllFields(savedSession, selectedQuestions);
     }
 
     public QuizSessionStartResponseDto findActiveQuizSession(User user, String subject, String chapter) {
@@ -155,7 +159,8 @@ public class AiChapterTestService {
         }
 
         QuizSession active = sessions.get(0);
-        List<QuizSessionQuestion> questions = quizSessionQuestionRepository.findByQuizSessionId(active.getId());
+        // 변경된 부분: fetch join으로 교체
+        List<QuizSessionQuestion> questions = quizSessionQuestionRepository.findByQuizSessionIdWithChapterTest(active.getId());
 
         List<AiChapterTest> chapterTests = questions.stream()
                 .map(QuizSessionQuestion::getChapterTest)
@@ -165,7 +170,7 @@ public class AiChapterTestService {
     }
 
     public void submitAnswer(Long quizSessionId, Long questionId, String userAnswer, int elapsedTime) {
-        List<QuizSessionQuestion> questions = quizSessionQuestionRepository.findByQuizSessionId(quizSessionId);
+    List<QuizSessionQuestion> questions = quizSessionQuestionRepository.findWithChapterTestByQuizSessionId(quizSessionId);
 
         QuizSessionQuestion target = questions.stream()
                 .filter(q -> q.getChapterTest().getId().equals(questionId))
@@ -201,10 +206,27 @@ public class AiChapterTestService {
 
     public QuizResultResponseDto getQuizResult(Long quizSessionId) {
         QuizSession session = quizSessionRepository.findById(quizSessionId);
-        List<QuizSessionQuestion> questions = quizSessionQuestionRepository.findByQuizSessionId(quizSessionId);
+        List<QuizSessionQuestion> questions = quizSessionQuestionRepository.findWithChapterTestByQuizSessionId(quizSessionId);
 
         long correct = questions.stream().filter(QuizSessionQuestion::isCorrect).count();
         long totalTime = questions.stream().mapToInt(QuizSessionQuestion::getElapsedTime).sum();
+
+        List<QuizResultResponseDto.QuestionDetail> details = questions.stream()
+                .map(q -> QuizResultResponseDto.QuestionDetail.builder()
+                        .questionId(q.getChapterTest().getId())
+                        .question(q.getChapterTest().getQuestion())
+                        .choiceA(q.getChapterTest().getChoiceA())
+                        .choiceB(q.getChapterTest().getChoiceB())
+                        .choiceC(q.getChapterTest().getChoiceC())
+                        .choiceD(q.getChapterTest().getChoiceD())
+                        .answer(q.getChapterTest().getAnswer())
+                        .subject(q.getChapterTest().getSubject())
+                        .chapter(q.getChapterTest().getChapter())
+                        .userAnswer(q.getUserAnswer())
+                        .correct(q.isCorrect())
+                        .elapsedTime(q.getElapsedTime())
+                        .build())
+                .toList();
 
         return QuizResultResponseDto.builder()
                 .quizSessionId(session.getId())
@@ -214,6 +236,7 @@ public class AiChapterTestService {
                 .correctAnswers((int) correct)
                 .totalTimeSeconds((int) totalTime)
                 .submittedAt(LocalDateTime.now())
+                .questionDetails(details)
                 .build();
     }
 }
