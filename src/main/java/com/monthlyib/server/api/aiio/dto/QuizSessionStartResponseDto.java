@@ -41,7 +41,8 @@ public class QuizSessionStartResponseDto {
                                 q.getChoiceD(),
                                 q.getAnswer(),
                                 q.getSubject(),
-                                q.getChapter()
+                                q.getChapter(),
+                                q.getImagePath()
                         ))
                         .collect(Collectors.toList()))
                 .build();
@@ -58,7 +59,8 @@ public class QuizSessionStartResponseDto {
                 q.getChoiceD(),
                 q.getAnswer(),
                 q.getSubject(),
-                q.getChapter()
+                q.getChapter(),
+                q.getImagePath()
             )
         ).collect(Collectors.toList());
 
@@ -85,5 +87,6 @@ public class QuizSessionStartResponseDto {
         private String answer;
         private String subject;
         private String chapter;
+        private String imagePath;
     }
 }

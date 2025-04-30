@@ -109,18 +109,20 @@ public class FileService {
     public Optional<File> convert(MultipartFile file) {
         String fileName = Optional.ofNullable(file.getOriginalFilename())
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.FILE_NOT_NULL));
-        File convertFile = new File(fileName);
+        String tempDir = System.getProperty("java.io.tmpdir"); // Use system temp directory
+        File convertFile = new File(tempDir, fileName);
+
         try {
             if (convertFile.createNewFile()) {
                 try (FileOutputStream fos = new FileOutputStream(convertFile)) {
                     fos.write(file.getBytes());
                 }
+                convertFile.deleteOnExit(); // Ensure temp file is deleted when JVM exits
                 return Optional.of(convertFile);
             }
         } catch (IOException e) {
             throw new ServiceLogicException(ErrorCode.FILE_CONVERT_ERROR);
         }
-
         return Optional.empty();
     }
 

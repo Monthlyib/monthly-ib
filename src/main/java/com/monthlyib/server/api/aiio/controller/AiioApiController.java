@@ -87,6 +87,14 @@ public class AiioApiController {
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 
+    @DeleteMapping("/api/chapter-test/image/{id}")
+    public ResponseEntity<ResponseDto<?>> deleteAiChapterTestImage(
+            @PathVariable("id") Long id,
+            @UserSession User user) {
+        AiChapterTestResponseDto response = aiChapterTestService.deleteImage(id);
+        return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
+    }
+
     @GetMapping("/api/chapter-test/list")
     public ResponseEntity<PageResponseDto<?>> getChapterTestsBySubjectAndChapter(
             @RequestParam("subject") String subject,

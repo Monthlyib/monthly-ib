@@ -21,6 +21,7 @@ public class AiChapterTestResponseDto {
     private String answer;
     private String subject;
     private String chapter;
+    private String imagePath;
 
     public static AiChapterTestResponseDto of(AiChapterTest entity) {
         return AiChapterTestResponseDto.builder()
@@ -33,6 +34,7 @@ public class AiChapterTestResponseDto {
                 .answer(entity.getAnswer())
                 .subject(entity.getSubject())
                 .chapter(entity.getChapter())
+                .imagePath(entity.getImagePath())
                 .build();
     }
 }

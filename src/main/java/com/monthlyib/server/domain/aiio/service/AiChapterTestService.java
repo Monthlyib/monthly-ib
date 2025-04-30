@@ -62,18 +62,35 @@ public class AiChapterTestService {
         // 기존 이미지가 있다면 삭제
         if (test.getImagePath() != null && !test.getImagePath().isEmpty()) {
             fileService.deleteAwsFile(test.getImagePath(), AwsProperty.AICHAPTER_IMAGE);
+            test.setImagePath(null); // 이미지 경로 초기화
         }
 
-        // 새 이미지 저장
-        String imagePath = fileService.saveMultipartFileForAws(multipartFile, AwsProperty.AICHAPTER_IMAGE);
-        test.setImagePath(imagePath);
-        AiChapterTest saved = aiChapterTestRepository.save(test);
+        // multipartFile이 비어 있지 않을 때만 새 이미지 저장
+        if (multipartFile != null && !multipartFile.isEmpty()) {
+            String imagePath = fileService.saveMultipartFileForAws(multipartFile, AwsProperty.AICHAPTER_IMAGE,
+                    "/" + id + "/");
+            test.setImagePath(imagePath);
+        }
 
+        AiChapterTest saved = aiChapterTestRepository.save(test);
         return AiChapterTestResponseDto.of(saved);
     }
-    
+
+    public AiChapterTestResponseDto deleteImage(Long id) {
+        AiChapterTest test = aiChapterTestRepository.findById(id);
+
+        if (test.getImagePath() != null && !test.getImagePath().isEmpty()) {
+            fileService.deleteAwsFile(test.getImagePath(), AwsProperty.AICHAPTER_IMAGE);
+            test.setImagePath(null);
+        }
+
+        AiChapterTest saved = aiChapterTestRepository.save(test);
+        return AiChapterTestResponseDto.of(saved);
+    }
+
     public Page<AiChapterTestResponseDto> findBySubjectAndChapter(String subject, String chapter, int page) {
-        Page<AiChapterTest> tests = aiChapterTestRepository.findBySubjectAndChapter(subject, chapter, PageRequest.of(page, 6, Sort.by("createAt").descending()));
+        Page<AiChapterTest> tests = aiChapterTestRepository.findBySubjectAndChapter(subject, chapter,
+                PageRequest.of(page, 6, Sort.by("createAt").descending()));
         return tests.map(AiChapterTestResponseDto::of);
     }
 
@@ -107,17 +124,20 @@ public class AiChapterTestService {
     }
 
     public QuizSessionStartResponseDto startQuizSession(QuizSessionStartRequestDto request, User user) {
-        List<QuizSession> previousSessions = quizSessionRepository.findAllByUserIdAndIsSubmittedFalse(user.getUserId()).stream()
+        List<QuizSession> previousSessions = quizSessionRepository.findAllByUserIdAndIsSubmittedFalse(user.getUserId())
+                .stream()
                 .filter(s -> s.getSubject().equals(request.getSubject()) && s.getChapter().equals(request.getChapter()))
                 .toList();
 
         for (QuizSession session : previousSessions) {
-            List<QuizSessionQuestion> relatedQuestions = quizSessionQuestionRepository.findByQuizSessionId(session.getId());
+            List<QuizSessionQuestion> relatedQuestions = quizSessionQuestionRepository
+                    .findByQuizSessionId(session.getId());
             relatedQuestions.forEach(quizSessionQuestionRepository::delete);
             quizSessionRepository.delete(session);
         }
 
-        List<AiChapterTest> availableQuestions = aiChapterTestRepository.findAllBySubjectAndChapter(request.getSubject(), request.getChapter());
+        List<AiChapterTest> availableQuestions = aiChapterTestRepository
+                .findAllBySubjectAndChapter(request.getSubject(), request.getChapter());
 
         if (availableQuestions.size() < request.getQuestionCount()) {
             throw new ServiceLogicException(ErrorCode.NOT_ENOUGH_QUESTION);
@@ -160,7 +180,8 @@ public class AiChapterTestService {
 
         QuizSession active = sessions.get(0);
         // 변경된 부분: fetch join으로 교체
-        List<QuizSessionQuestion> questions = quizSessionQuestionRepository.findByQuizSessionIdWithChapterTest(active.getId());
+        List<QuizSessionQuestion> questions = quizSessionQuestionRepository
+                .findByQuizSessionIdWithChapterTest(active.getId());
 
         List<AiChapterTest> chapterTests = questions.stream()
                 .map(QuizSessionQuestion::getChapterTest)
@@ -170,7 +191,8 @@ public class AiChapterTestService {
     }
 
     public void submitAnswer(Long quizSessionId, Long questionId, String userAnswer, int elapsedTime) {
-    List<QuizSessionQuestion> questions = quizSessionQuestionRepository.findWithChapterTestByQuizSessionId(quizSessionId);
+        List<QuizSessionQuestion> questions = quizSessionQuestionRepository
+                .findWithChapterTestByQuizSessionId(quizSessionId);
 
         QuizSessionQuestion target = questions.stream()
                 .filter(q -> q.getChapterTest().getId().equals(questionId))
@@ -206,7 +228,8 @@ public class AiChapterTestService {
 
     public QuizResultResponseDto getQuizResult(Long quizSessionId) {
         QuizSession session = quizSessionRepository.findById(quizSessionId);
-        List<QuizSessionQuestion> questions = quizSessionQuestionRepository.findWithChapterTestByQuizSessionId(quizSessionId);
+        List<QuizSessionQuestion> questions = quizSessionQuestionRepository
+                .findWithChapterTestByQuizSessionId(quizSessionId);
 
         long correct = questions.stream().filter(QuizSessionQuestion::isCorrect).count();
         long totalTime = questions.stream().mapToInt(QuizSessionQuestion::getElapsedTime).sum();
