@@ -81,7 +81,7 @@ public class FileService {
     public void deleteAwsFile(String fullPath) {
         awsService.deleteS3(fullPath);
     }
-
+ㅌ
     public void deleteAwsDir(String dirPath, AwsProperty path) {
         awsService.deleteAwsDir(path.getName() + dirPath);
     }

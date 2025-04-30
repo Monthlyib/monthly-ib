@@ -118,7 +118,7 @@ public class AiChapterTestService {
     public void deleteTest(Long id) {
         AiChapterTest test = aiChapterTestRepository.findById(id);
         if (test.getImagePath() != null && !test.getImagePath().isEmpty()) {
-            fileService.deleteAwsFile(test.getImagePath(), AwsProperty.AICHAPTER_IMAGE);
+            fileService.deleteAwsFile(test.getImagePath());
         }
         aiChapterTestRepository.delete(test);
     }
