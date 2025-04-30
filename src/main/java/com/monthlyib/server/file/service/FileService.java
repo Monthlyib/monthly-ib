@@ -1,20 +1,6 @@
 package com.monthlyib.server.file.service;
 
 
-import com.monthlyib.server.constant.AwsProperty;
-import com.monthlyib.server.constant.ErrorCode;
-import com.monthlyib.server.exception.ServiceLogicException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -25,6 +11,22 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Optional;
+
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.monthlyib.server.constant.AwsProperty;
+import com.monthlyib.server.constant.ErrorCode;
+import com.monthlyib.server.exception.ServiceLogicException;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Transactional
@@ -81,7 +83,6 @@ public class FileService {
     public void deleteAwsFile(String fullPath) {
         awsService.deleteS3(fullPath);
     }
-ㅌ
     public void deleteAwsDir(String dirPath, AwsProperty path) {
         awsService.deleteAwsDir(path.getName() + dirPath);
     }
