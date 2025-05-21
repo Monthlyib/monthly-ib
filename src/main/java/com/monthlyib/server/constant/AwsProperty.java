@@ -16,7 +16,8 @@ public enum AwsProperty {
     AIIO_SCRIPT("aiio/script/"),
     AIIO_AUDIO("aiio/audio/"),
     ZIP_DIR_NAME("zip/"),
-    AICHAPTER_IMAGE("aiio/chapter-test/image/");
+    AICHAPTER_IMAGE("aiio/chapter-test/image/"),
+    AIDESCRIPTIVE_IMAGE("aidescriptive/image/");
 
     private final String name;
 
