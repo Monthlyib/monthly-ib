@@ -40,4 +40,19 @@ public class AiDescriptiveAnswer extends Auditable {
 
     @Column(nullable = false)
     private Long descriptiveQuestionId; // ID of the descriptive question
+
+    @Column(nullable = true)
+    private Integer score;
+
+    @Column(name = "max_score")
+    private Integer maxScore;
+
+    @Column(name = "feedback_english", columnDefinition = "LONGTEXT")
+    private String feedbackEnglish;
+
+    @Column(name = "feedback_korean", columnDefinition = "LONGTEXT")
+    private String feedbackKorean;
+
+    @Column(name = "model_answer", columnDefinition = "LONGTEXT")
+    private String modelAnswer;
 }

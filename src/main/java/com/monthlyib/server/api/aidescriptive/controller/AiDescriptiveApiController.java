@@ -1,4 +1,6 @@
 package com.monthlyib.server.api.aidescriptive.controller;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.monthlyib.server.annotation.UserSession;
 import com.monthlyib.server.domain.user.entity.User;
@@ -7,6 +9,7 @@ import com.monthlyib.server.dto.Result;
 import com.monthlyib.server.domain.aidescriptive.service.AiDescriptiveService;
 import com.monthlyib.server.api.aidescriptive.dto.AiDescriptiveTestDto;
 import com.monthlyib.server.api.aidescriptive.dto.AiDescriptiveResponseDto;
+import com.monthlyib.server.api.aidescriptive.dto.SubmitDescriptiveAnswerDto;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -82,5 +85,30 @@ public class AiDescriptiveApiController {
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 
+    @GetMapping("/start")
+    public ResponseEntity<ResponseDto<?>> getSingleDescriptiveTest(
+            @RequestParam("subject") String subject,
+            @RequestParam("chapter") String chapter,
+            @UserSession User user) {
+        AiDescriptiveResponseDto response = AiDescriptiveResponseDto.of(aiDescriptiveService.findBySubjectAndChapterOnce(subject, chapter));
+        return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
+    }
 
+    @PostMapping("/submit")
+    public ResponseEntity<ResponseDto<?>> submitDescriptiveAnswer(
+            @RequestBody SubmitDescriptiveAnswerDto request,
+            @UserSession User user) {
+        Long answerId = aiDescriptiveService.submitAnswer(request, user);
+        Map<String, Object> responseMap = new HashMap<>();
+        responseMap.put("answerId", answerId);
+        return ResponseEntity.ok(ResponseDto.of(responseMap, Result.ok()));
+    }
+
+    @GetMapping("/result/{answerId}")
+    public ResponseEntity<ResponseDto<?>> getDescriptiveAnswerResult(
+            @PathVariable("answerId") Long answerId,
+            @UserSession User user) {
+        var result = aiDescriptiveService.getAnswerResult(answerId);
+        return ResponseEntity.ok(ResponseDto.of(result, Result.ok()));
+    }
 }

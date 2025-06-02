@@ -38,4 +38,7 @@ public class AiDescriptiveTest extends Auditable {
 
     @Column(nullable = false)
     private String chapter;
+
+    @Column(nullable = false)
+    private Integer maxScore;
 }

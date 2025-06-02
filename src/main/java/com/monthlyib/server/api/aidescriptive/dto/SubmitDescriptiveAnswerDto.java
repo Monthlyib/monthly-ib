@@ -2,16 +2,16 @@ package com.monthlyib.server.api.aidescriptive.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
+@Getter
 @Builder
-public class AiDescriptiveTestDto {
-    private String question;
+@NoArgsConstructor
+@AllArgsConstructor
+public class SubmitDescriptiveAnswerDto {
     private String subject;
     private String chapter;
-    private Integer maxScore;
+    private Long questionId;
+    private String answer;
 }

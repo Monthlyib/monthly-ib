@@ -1,6 +1,7 @@
 package com.monthlyib.server.api.aidescriptive.dto;
 
 import com.monthlyib.server.domain.aidescriptive.entity.AiDescriptiveTest;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -17,6 +18,7 @@ public class AiDescriptiveResponseDto {
     private String chapter;
     private String question;
     private String imagePath;
+    private Integer maxScore;
 
     public static AiDescriptiveResponseDto of(AiDescriptiveTest test) {
         return AiDescriptiveResponseDto.builder()
@@ -25,6 +27,7 @@ public class AiDescriptiveResponseDto {
             .chapter(test.getChapter())
             .question(test.getQuestion())
             .imagePath(test.getImagePath())
+            .maxScore(test.getMaxScore())
             .build();
     }
 }
