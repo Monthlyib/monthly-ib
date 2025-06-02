@@ -111,4 +111,11 @@ public class AiDescriptiveApiController {
         var result = aiDescriptiveService.getAnswerResult(answerId);
         return ResponseEntity.ok(ResponseDto.of(result, Result.ok()));
     }
+    @GetMapping("/answer-feedback/{answerId}")
+    public ResponseEntity<ResponseDto<?>> generateAnswerFeedback(
+            @PathVariable("answerId") Long answerId,
+            @UserSession User user) {
+        var result = aiDescriptiveService.generateAnswerFeedback(answerId, user);
+        return ResponseEntity.ok(ResponseDto.of(result, Result.ok()));
+    }
 }

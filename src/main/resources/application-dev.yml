@@ -94,3 +94,15 @@ oauth:
 logging:
   level:
     root: WARN
+
+openai:
+  api-key: ${OPENAI_API_KEY}
+  descriptive:
+    assistant-id:
+      Biology: asst_Qr7bj6DItbg8hxlgoJm3WrDu
+      Chemistry: asst_chemistry_id
+      Physics: asst_physics_id
+      English: asst_english_id
+      Econ: asst_econ_id
+      Business: asst_business_id
+      Psychology: asst_XNOHoOkw7onEg1qqqWqS44lY
