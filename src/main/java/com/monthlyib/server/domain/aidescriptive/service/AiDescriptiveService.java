@@ -153,6 +153,7 @@ public class AiDescriptiveService {
         resultDto.setSubject(test.getSubject());
         resultDto.setChapter(test.getChapter());
         resultDto.setMaxScore(test.getMaxScore());
+        resultDto.setImagePath(test.getImagePath());
         resultDto.setAnswerId(answer.getId());
         resultDto.setAnswerText(answer.getAnswerText());
         resultDto.setScore(answer.getScore());
@@ -241,13 +242,20 @@ public class AiDescriptiveService {
             ObjectNode messageBody = objectMapper.createObjectNode();
             messageBody.put("role", "user");
 
-            ObjectNode input = objectMapper.createObjectNode();
-            input.put("question", questionText);
-            input.put("student_answer", answerText);
-            input.put("max_score", maxScore);
-            input.put("image_path", imagePath);
-            messageBody.put("content", input.toString());
-            messageBody.put("image_url", imagePath);
+            ObjectNode contentText = objectMapper.createObjectNode();
+            contentText.put("type", "text");
+            contentText.put("text", String.format("Question: %s\nAnswer: %s\nMax Score: %d", questionText, answerText, maxScore));
+
+            if (imagePath != null && !imagePath.isBlank()) {
+                ObjectNode contentImage = objectMapper.createObjectNode();
+                contentImage.put("type", "image_url");
+                ObjectNode imageUrlNode = objectMapper.createObjectNode();
+                imageUrlNode.put("url", imagePath);
+                contentImage.set("image_url", imageUrlNode);
+                messageBody.set("content", objectMapper.createArrayNode().add(contentText).add(contentImage));
+            } else {
+                messageBody.set("content", objectMapper.createArrayNode().add(contentText));
+            }
 
             HttpEntity<String> addMessageEntity = new HttpEntity<>(messageBody.toString(), headers);
             restTemplate.exchange(
