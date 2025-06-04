@@ -1,40 +1,38 @@
 package com.monthlyib.server.domain.aidescriptive.service;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestTemplate;
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.monthlyib.server.api.aidescriptive.dto.AiDescriptiveResponseDto;
-import com.monthlyib.server.api.aidescriptive.dto.AiDescriptiveTestDto;
 import com.monthlyib.server.api.aidescriptive.dto.AiDescriptiveResultDto;
-import com.monthlyib.server.api.aidescriptive.dto.SubmitDescriptiveAnswerDto;
+import com.monthlyib.server.api.aidescriptive.dto.AiDescriptiveTestDto;
 import com.monthlyib.server.api.aidescriptive.dto.GptFeedbackResult;
+import com.monthlyib.server.api.aidescriptive.dto.SubmitDescriptiveAnswerDto;
 import com.monthlyib.server.constant.AwsProperty;
 import com.monthlyib.server.domain.aidescriptive.entity.AiDescriptiveAnswer;
 import com.monthlyib.server.domain.aidescriptive.entity.AiDescriptiveTest;
 import com.monthlyib.server.domain.aidescriptive.repository.AiDescriptiveAnswerRepository;
 import com.monthlyib.server.domain.aidescriptive.repository.AiDescriptiveTestRepository;
-import com.monthlyib.server.file.service.FileService;
 import com.monthlyib.server.domain.user.entity.User;
+import com.monthlyib.server.file.service.FileService;
 
 import lombok.RequiredArgsConstructor;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -172,7 +170,7 @@ public class AiDescriptiveService {
 
         // GPT API 호출 (subject에 따라 assistant 선택 필요, 가상의 호출 예시)
         GptFeedbackResult result = callGptFeedbackApi(subject, answer.getAnswerText(), test.getQuestion(),
-                test.getMaxScore());
+                test.getMaxScore(), test.getImagePath());
 
         answer.setScore(result.getScore());
         answer.setMaxScore(result.getMaxScore());
@@ -185,6 +183,7 @@ public class AiDescriptiveService {
         AiDescriptiveResultDto resultDto = new AiDescriptiveResultDto();
         resultDto.setQuestionId(test.getId());
         resultDto.setQuestion(test.getQuestion());
+        resultDto.setImagePath(test.getImagePath());
         resultDto.setSubject(test.getSubject());
         resultDto.setChapter(test.getChapter());
         resultDto.setMaxScore(test.getMaxScore());
@@ -198,7 +197,7 @@ public class AiDescriptiveService {
         return resultDto;
     }
 
-    private GptFeedbackResult callGptFeedbackApi(String subject, String answerText, String questionText, int maxScore) {
+    private GptFeedbackResult callGptFeedbackApi(String subject, String answerText, String questionText, int maxScore, String imagePath) {
         try {
             Map<String, String> assistantMap = Map.of(
                     "Biology", "asst_Qr7bj6DItbg8hxlgoJm3WrDu",
@@ -206,8 +205,9 @@ public class AiDescriptiveService {
                     "Physics", "asst_bHLrpIRJEkwEMvgSUjgMgT7i",
                     "English", "asst_english_id",
                     "Econ", "asst_DDWY6eyZ81VgcNi7yYiT3t4u",
-                    "Business", "asst_business_id",
-                    "Psychology", "asst_XNOHoOkw7onEg1qqqWqS44lY");
+                    "Business", "asst_RKORBIO2nXcHxKpN550BT8cq",
+                    "Psychology", "asst_XNOHoOkw7onEg1qqqWqS44lY",
+                    "MathAA", "asst_MathAA_id");
             String assistantId = assistantMap.getOrDefault(subject, "asst_default_id").trim();
 
             HttpHeaders headers = new HttpHeaders();
@@ -245,7 +245,9 @@ public class AiDescriptiveService {
             input.put("question", questionText);
             input.put("student_answer", answerText);
             input.put("max_score", maxScore);
+            input.put("image_path", imagePath);
             messageBody.put("content", input.toString());
+            messageBody.put("image_url", imagePath);
 
             HttpEntity<String> addMessageEntity = new HttpEntity<>(messageBody.toString(), headers);
             restTemplate.exchange(
