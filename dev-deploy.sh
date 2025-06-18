@@ -61,3 +61,5 @@ cleanup_old_container_and_images "$CERBOT_CONTAINER_NAME" "$CERTBOT_OLD_IMAGES_N
 # Docker Compose 빌드 및 실행
 sudo docker-compose build
 sudo docker-compose up -d
+
+sudo systemctl restart nginx
