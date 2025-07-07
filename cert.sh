@@ -1,7 +1,7 @@
 
 docker-compose run --rm --entrypoint "\
 certbot certonly \
--d monthlyib.server-get.site \
+-d monthlyib.server-get.com \
 --email monthlyIb@gmail.com \
 --manual --preferred-challenges dns \
 --server https://acme-v02.api.letsencrypt.org/directory \
