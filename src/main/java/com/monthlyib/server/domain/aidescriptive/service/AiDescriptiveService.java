@@ -204,7 +204,7 @@ public class AiDescriptiveService {
                     "Biology", "asst_Qr7bj6DItbg8hxlgoJm3WrDu",
                     "Chemistry", "asst_35NPwAbblAorxdFbedt5xvJQ",
                     "Physics", "asst_bHLrpIRJEkwEMvgSUjgMgT7i",
-                    "English", "asst_english_id",
+                    "English", "asst_ZFcy4RektFoeeUehkbVhKYNg",
                     "Econ", "asst_DDWY6eyZ81VgcNi7yYiT3t4u",
                     "Business", "asst_RKORBIO2nXcHxKpN550BT8cq",
                     "Psychology", "asst_XNOHoOkw7onEg1qqqWqS44lY",

@@ -1,0 +1,193 @@
+package com.monthlyib.server.domain.aiia.service;
+
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.monthlyib.server.domain.aiia.entity.AiIARecommendation;
+import com.monthlyib.server.domain.aiia.repository.AiIARecommendationRepository;
+import com.monthlyib.server.domain.user.entity.User;
+
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class AiIAService {
+
+
+        private final AiIARecommendationRepository aiIARecommendationRepository;
+
+
+
+        @Value("${openai.api-key}")
+        private String openAiApiKey;
+
+        public Map<String, Object> recommendTopics(String subject, String interest, User user) {
+                Logger log = LoggerFactory.getLogger(AiIAService.class);
+                log.warn(interest, subject);
+
+                AiIARecommendation recommendation = AiIARecommendation.builder()
+                                .subject(subject)
+                                .interest(interest)
+                                .user(user)
+                                .topics("") // initialize empty
+                                .build();
+                aiIARecommendationRepository.save(recommendation);
+
+                try {
+                        Map<String, String> assistantMap = Map.of(
+                                        "Science", "asst_AOfc3JgUHv0TEAt1TW3BlrUj",
+                                        "Math", "asst_CTKqoWcoSQVxvGwvBEnLU1JK",
+                                        "Langauge A English", "asst_MYL7Zgg1btoI9oxfqJFrJNTr",
+                                        "Psychology", "asst_vR4kvb3si89JhVbStxx8zUy4",
+                                        "Business", "asst_8THzNZp7ajvDqzTWUV6xbwT3",
+                                        "History", "asst_2qQTQt9UMdA20f59rg7RtLt4",
+                                        "Geography", "asst_CedDfZnJ8xP0Z6LRPzTQryS9",
+                                        "Economics", "asst_FWEEdenoYroG02QPw8vZ0JnT");
+                        String assistantId = assistantMap.getOrDefault(subject, "asst_default_id").trim();
+                        
+                        log.warn("Using assistant ID: " + assistantId);
+
+                        HttpHeaders headers = new HttpHeaders();
+                        headers.setContentType(MediaType.APPLICATION_JSON);
+                        headers.set("Authorization", "Bearer " + openAiApiKey);
+                        headers.set("OpenAI-Beta", "assistants=v2");
+
+                        RestTemplate restTemplate = new RestTemplate();
+                        ObjectMapper objectMapper = new ObjectMapper();
+
+                        // Create thread
+                        ResponseEntity<JsonNode> threadResponse = restTemplate.exchange(
+                                        "https://api.openai.com/v1/threads",
+                                        HttpMethod.POST,
+                                        new HttpEntity<>("{}", headers),
+                                        JsonNode.class);
+                        String threadId = threadResponse.getBody().path("id").asText();
+
+                        // Add message
+                        ObjectNode messageBody = objectMapper.createObjectNode();
+                        messageBody.put("role", "user");
+
+                        ObjectNode contentText = objectMapper.createObjectNode();
+                        contentText.put("type", "text");
+                        contentText.put("text", String.format(
+                                        "Subject: %s\nInterest: %s\nPlease recommend 3 suitable IA topics.", subject,
+                                        interest));
+                        messageBody.set("content", objectMapper.createArrayNode().add(contentText));
+
+                        HttpEntity<String> addMessageEntity = new HttpEntity<>(messageBody.toString(), headers);
+                        restTemplate.exchange(
+                                        "https://api.openai.com/v1/threads/" + threadId + "/messages",
+                                        HttpMethod.POST,
+                                        addMessageEntity,
+                                        String.class);
+
+                        // Run assistant
+                        ObjectNode runRequest = objectMapper.createObjectNode();
+                        runRequest.put("assistant_id", assistantId);
+                        HttpEntity<String> runEntity = new HttpEntity<>(runRequest.toString(), headers);
+                        ResponseEntity<JsonNode> runResponse = restTemplate.exchange(
+                                        "https://api.openai.com/v1/threads/" + threadId + "/runs",
+                                        HttpMethod.POST,
+                                        runEntity,
+                                        JsonNode.class);
+                        String runId = runResponse.getBody().path("id").asText();
+
+                        // Wait for run to complete
+                        String status;
+                        do {
+                                Thread.sleep(1000);
+                                ResponseEntity<JsonNode> statusResponse = restTemplate.exchange(
+                                                "https://api.openai.com/v1/threads/" + threadId + "/runs/" + runId,
+                                                HttpMethod.GET,
+                                                new HttpEntity<>(headers),
+                                                JsonNode.class);
+                                status = statusResponse.getBody().path("status").asText();
+                        } while (!"completed".equals(status));
+
+                        // Fetch messages
+                        ResponseEntity<JsonNode> messagesResponse = restTemplate.exchange(
+                                        "https://api.openai.com/v1/threads/" + threadId + "/messages",
+                                        HttpMethod.GET,
+                                        new HttpEntity<>(headers),
+                                        JsonNode.class);
+                        String content = messagesResponse.getBody()
+                                        .path("data").get(0)
+                                        .path("content").get(0)
+                                        .path("text").path("value").asText();
+
+                        recommendation.setTopics(content);
+                        aiIARecommendationRepository.save(recommendation);
+
+                        // Attempt to extract a single JSON object from the assistant response and forward as-is
+                        String jsonCandidate = extractJsonBlock(content);
+
+                        if (jsonCandidate != null) {
+                            try {
+                                // Try parsing as JSON
+                                JsonNode node = objectMapper.readTree(jsonCandidate);
+                                // Return as a Map so the controller serializes it intact
+                                return objectMapper.convertValue(node, new TypeReference<Map<String, Object>>() {});
+                            } catch (Exception parseEx) {
+                                // Clean up trailing commas and retry once
+                                String cleaned = cleanupLooseCommas(jsonCandidate);
+                                try {
+                                    JsonNode node = objectMapper.readTree(cleaned);
+                                    return objectMapper.convertValue(node, new TypeReference<Map<String, Object>>() {});
+                                } catch (Exception ignore) {
+                                    // fall through to raw content
+                                }
+                            }
+                        }
+
+                        // Fallback: return the raw content as a map
+                        return Map.of("raw", content);
+
+                } catch (Exception e) {
+                        Logger logger = LoggerFactory.getLogger(AiIAService.class);
+                        logger.error("GPT 토픽 추천 API 오류", e);
+                        throw new RuntimeException("토픽 추천 실패", e);
+                }
+        }
+
+        /**
+         * Extracts the first JSON object block from a text blob by taking the substring
+         * between the first '{' and the last '}'.
+         */
+        private String extractJsonBlock(String text) {
+            if (text == null) return null;
+            int start = text.indexOf('{');
+            int end = text.lastIndexOf('}');
+            if (start >= 0 && end > start) {
+                return text.substring(start, end + 1);
+            }
+            return null;
+        }
+
+        /**
+         * Cleans common formatting artifacts such as trailing commas before '}' or ']'
+         * and duplicate commas that can appear in LLM outputs.
+         */
+        private String cleanupLooseCommas(String json) {
+            if (json == null) return null;
+            // Remove a comma that is immediately before a closing brace/bracket
+            String cleaned = json.replaceAll(",\\s*([}\\]])", "$1");
+            // Collapse duplicate commas
+            cleaned = cleaned.replaceAll("\\s*,\\s*,", ",");
+            return cleaned;
+        }
+}
