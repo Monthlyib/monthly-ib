@@ -1,13 +1,25 @@
 package com.monthlyib.server.domain.storage.entity;
 
+import java.util.Optional;
+
 import com.monthlyib.server.api.storage.dto.StoragePatchDto;
 import com.monthlyib.server.api.storage.dto.StoragePostDto;
 import com.monthlyib.server.audit.Auditable;
 import com.monthlyib.server.constant.StorageFolderStatus;
-import jakarta.persistence.*;
-import lombok.*;
 
-import java.util.Optional;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Setter
 @Getter
@@ -23,16 +35,16 @@ public class StorageFolder extends Auditable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long storageFolderId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 512)
     private String name;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 1024)
     private String fullPath;
 
     @Column(nullable = false)
     private Long parentsFolderId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 255)
     private String parentsFolderName;
 
     @Column(nullable = false)

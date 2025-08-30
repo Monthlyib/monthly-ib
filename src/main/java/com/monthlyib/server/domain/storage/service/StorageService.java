@@ -1,7 +1,17 @@
 package com.monthlyib.server.domain.storage.service;
 
+import java.util.List;
+import java.util.Optional;
 
-import com.monthlyib.server.api.storage.dto.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.monthlyib.server.api.storage.dto.StorageFileResponseDto;
+import com.monthlyib.server.api.storage.dto.StorageFolderResponseDto;
+import com.monthlyib.server.api.storage.dto.StoragePatchDto;
+import com.monthlyib.server.api.storage.dto.StoragePostDto;
+import com.monthlyib.server.api.storage.dto.StorageResponseDto;
+import com.monthlyib.server.api.storage.dto.StorageSearchDto;
 import com.monthlyib.server.constant.AwsProperty;
 import com.monthlyib.server.constant.ErrorCode;
 import com.monthlyib.server.constant.StorageFolderStatus;
@@ -10,14 +20,10 @@ import com.monthlyib.server.domain.storage.entity.StorageFolder;
 import com.monthlyib.server.domain.storage.repository.StorageRepository;
 import com.monthlyib.server.exception.ServiceLogicException;
 import com.monthlyib.server.file.service.FileService;
+
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
-import java.util.Optional;
 
 @Service
 @Transactional
@@ -51,11 +57,11 @@ public class StorageService {
         if (status.equals(StorageFolderStatus.SUB)) {
             StorageFolder folder = verifyStorageFolder(parentsFolderId);
             String path = getFullPath(parentsFolderId);
-            newFolder.setFullPath(path+folderName+"/");
+            newFolder.setFullPath(path + folderName + "/");
             newFolder.setParentsFolderId(folder.getStorageFolderId());
             newFolder.setParentsFolderName(folder.getName());
         } else {
-            newFolder.setFullPath(folderName+"/");
+            newFolder.setFullPath(folderName + "/");
             newFolder.setParentsFolderId(0L);
             newFolder.setParentsFolderName("MainFolder");
         }
@@ -72,22 +78,28 @@ public class StorageService {
         return getResponse(saveStorageFolder);
     }
 
-
     public void deleteFolder(Long storageFolderId) {
         StorageFolder findFolder = verifyStorageFolder(storageFolderId);
         storageRepository.deleteStorageFolder(findFolder.getStorageFolderId());
         fileService.deleteAwsDir(findFolder.getFullPath(), AwsProperty.STORAGE);
     }
 
-
     public StorageResponseDto uploadFile(Long parentsFolderId, MultipartFile[] files) {
+        log.warn("[StorageService] uploadFile start - parentsFolderId={}, filesCount={}", parentsFolderId,
+                (files == null ? 0 : files.length));
+
         StorageFolder findFolder = verifyStorageFolder(parentsFolderId);
         String path = findFolder.getFullPath();
         String fullPath = AwsProperty.STORAGE.getName() + path;
+        log.debug("[StorageService] target folder - id={}, name={}, fullPath={}, status={}",
+                findFolder.getStorageFolderId(), findFolder.getName(), findFolder.getFullPath(),
+                findFolder.getStatus());
+
         for (MultipartFile file : files) {
             String url = fileService.saveMultipartFileForAws(file, AwsProperty.STORAGE, path);
             String filename = file.getOriginalFilename();
-            StorageFile newFile = StorageFile.create(filename, fullPath + filename, url, parentsFolderId, findFolder.getParentsFolderName());
+            StorageFile newFile = StorageFile.create(filename, fullPath + filename, url, parentsFolderId,
+                    findFolder.getParentsFolderName());
             StorageFile storageFile = storageRepository.saveStorageFile(newFile);
         }
         return getResponse(findFolder);
@@ -102,14 +114,14 @@ public class StorageService {
         return getResponse(folder);
     }
 
-
     private StorageResponseDto getResponse(StorageFolder folder) {
         StorageFolderStatus status = folder.getStatus();
         if (status.equals(StorageFolderStatus.MAIN)) {
             List<StorageFolderResponseDto> allMainFolder = findAllMainFolder();
             return StorageResponseDto.of(allMainFolder, null);
         } else {
-            return findStorage(StorageSearchDto.builder().keyWord(null).parentsFolderId(folder.getParentsFolderId()).build());
+            return findStorage(
+                    StorageSearchDto.builder().keyWord(null).parentsFolderId(folder.getParentsFolderId()).build());
         }
     }
 

@@ -2,8 +2,18 @@ package com.monthlyib.server.domain.storage.entity;
 
 
 import com.monthlyib.server.audit.Auditable;
-import jakarta.persistence.*;
-import lombok.*;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Setter
 @Getter
@@ -18,19 +28,19 @@ public class StorageFile extends Auditable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long storageFileId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 512)
     private String fileName;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 1024)
     private String fullPath;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 2048)
     private String fileUrl;
 
     @Column(nullable = false)
     private Long parentsFolderId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 255)
     private String parentsFolderName;
 
     public static StorageFile create(String fileName, String fullPath, String fileUrl, Long parentsFolderId, String parentsFolderName) {
