@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import com.monthlyib.server.annotation.UserSession;
 import com.monthlyib.server.api.aiIA.dto.RecommendTopicRequestDto;
 import com.monthlyib.server.api.aiIA.dto.TopicGuideRequestDto;
+import com.monthlyib.server.api.aiIA.dto.EnglishChatRequestDto;
 import com.monthlyib.server.domain.aiia.service.AiIAService;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.dto.ResponseDto;
@@ -43,6 +44,22 @@ public class AiIAApiController {
                 request.getSubject(),
                 request.getInterestTopic(),
                 request.getTopic(),
+                user
+        );
+        return ResponseEntity.ok(ResponseDto.of(resp, Result.ok()));
+    }
+
+    
+    @PostMapping("/english-chat")
+    public ResponseEntity<ResponseDto<?>> englishChat(
+            @RequestBody EnglishChatRequestDto request,
+            @UserSession User user
+    ) {
+        Map<String, Object> resp = aiIAService.englishChat(
+                request.getSubject(),
+                request.getTextType(),
+                request.getResponseMode(),
+                request.getPrompt(),
                 user
         );
         return ResponseEntity.ok(ResponseDto.of(resp, Result.ok()));
