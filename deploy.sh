@@ -48,7 +48,7 @@ cleanup_old_container_and_images "$CERTBOT_CONTAINER_NAME" "$CERTBOT_OLD_IMAGES_
 ./gradlew clean build -x test
 
 # Docker Compose 빌드 및 실행
-sudo docker-compose build
-sudo docker-compose up -d
+sudo docker-compose -f $BUILD/docker-compose.yml build
+sudo docker-compose -f $BUILD/docker-compose.yml up -d
 
 echo "Deploy complete."
