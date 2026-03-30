@@ -21,7 +21,7 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
             --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["sudo -u ubuntu bash -c \"cd /home/ubuntu/monthly-ib && git fetch --all && git reset --hard origin/main && chmod +x deploy.sh && bash deploy.sh\""]' \
+            --parameters 'commands=["chown -R ubuntu:ubuntu /home/ubuntu/monthly-ib && sudo -u ubuntu bash -c \"cd /home/ubuntu/monthly-ib && git fetch --all && git reset --hard origin/main && chmod +x deploy.sh && bash deploy.sh\""]' \
             --region ap-northeast-2 \
             --query "Command.CommandId" \
             --output text)
