@@ -1,6 +1,9 @@
 package com.monthlyib.server.domain.aiia.service;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.monthlyib.server.constant.ErrorCode;
 import com.monthlyib.server.domain.aiia.entity.AiIARecommendation;
@@ -44,8 +47,7 @@ public class AiIAService {
             String response = openAiService.callAssistant(assistantKey, prompt);
             log.debug("Recommend topics response: {}", response);
 
-            Type mapType = new TypeToken<Map<String, Object>>() {}.getType();
-            Map<String, Object> result = gson.fromJson(response, mapType);
+            Map<String, Object> result = parseAssistantJson(response);
 
             AiIARecommendation recommendation = AiIARecommendation.create(interest, subject, response, user);
             repository.save(recommendation);
@@ -61,9 +63,13 @@ public class AiIAService {
 
     public Map<String, Object> createTopicGuide(String subject, String interestTopic, Object topic, User user) {
         try {
+            String topicText = topic instanceof Map<?, ?> topicMap
+                    ? gson.toJson(topicMap)
+                    : String.valueOf(topic);
+
             String prompt = "You are an IB academic writing coach. " +
                     "The student is studying: " + subject + ". " +
-                    "Create a detailed writing guide for the following IB essay topic: " + topic.toString() + ". " +
+                    "Create a detailed writing guide for the following IB essay topic: " + topicText + ". " +
                     "Interest area: " + interestTopic + ". " +
                     "Return ONLY a valid JSON object with: " +
                     "{\"guide\": {\"title\": \"...\", \"overview\": \"...\", \"researchQuestions\": [...], " +
@@ -73,8 +79,7 @@ public class AiIAService {
             String response = openAiService.callAssistant(assistantKey, prompt);
             log.debug("Topic guide response: {}", response);
 
-            Type mapType = new TypeToken<Map<String, Object>>() {}.getType();
-            return gson.fromJson(response, mapType);
+            return parseAssistantJson(response);
         } catch (ServiceLogicException e) {
             throw e;
         } catch (Exception e) {
@@ -110,6 +115,43 @@ public class AiIAService {
         } catch (Exception e) {
             log.error("Failed to process english chat", e);
             throw new ServiceLogicException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private Map<String, Object> parseAssistantJson(String response) {
+        try {
+            String cleanedResponse = response == null ? "" : response.trim();
+
+            if (cleanedResponse.startsWith("```")) {
+                cleanedResponse = cleanedResponse
+                        .replaceAll("^```json\\s*", "")
+                        .replaceAll("^```\\s*", "")
+                        .replaceAll("\\s*```$", "")
+                        .trim();
+            }
+
+            JsonElement parsed = JsonParser.parseString(cleanedResponse);
+            if (parsed.isJsonPrimitive() && parsed.getAsJsonPrimitive().isString()) {
+                cleanedResponse = parsed.getAsString().trim();
+                if (cleanedResponse.startsWith("```")) {
+                    cleanedResponse = cleanedResponse
+                            .replaceAll("^```json\\s*", "")
+                            .replaceAll("^```\\s*", "")
+                            .replaceAll("\\s*```$", "")
+                            .trim();
+                }
+                parsed = JsonParser.parseString(cleanedResponse);
+            }
+
+            if (!parsed.isJsonObject()) {
+                throw new IllegalStateException("Assistant response is not a JSON object");
+            }
+
+            Type mapType = new TypeToken<Map<String, Object>>() {}.getType();
+            return gson.fromJson(parsed.getAsJsonObject(), mapType);
+        } catch (Exception e) {
+            log.error("Failed to parse assistant JSON response: {}", response, e);
+            throw e;
         }
     }
 }
