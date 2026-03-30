@@ -13,6 +13,8 @@ public class AiDescriptiveAnswerResponseDto {
 
     private Long id;
     private Long questionId;
+    private String subject;
+    private String chapter;
     private String question;
     private Integer maxScore;
     private String answerText;
@@ -26,6 +28,8 @@ public class AiDescriptiveAnswerResponseDto {
         AiDescriptiveAnswerResponseDto dto = new AiDescriptiveAnswerResponseDto();
         dto.setId(answer.getId());
         dto.setQuestionId(test.getId());
+        dto.setSubject(test.getSubject());
+        dto.setChapter(test.getChapter());
         dto.setQuestion(test.getQuestion());
         dto.setMaxScore(answer.getMaxScore());
         dto.setAnswerText(answer.getAnswerText());
