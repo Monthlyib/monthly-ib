@@ -2,6 +2,8 @@
 set -euo pipefail
 
 BUILD=/home/ubuntu/monthly-ib
+JAR_PATH=$BUILD/build/libs/server-0.0.1.jar
+SERVICE_NAME=monthlyib
 
 cd $BUILD || { echo "Failed to change directory to $BUILD"; exit 1; }
 
@@ -10,45 +12,39 @@ git fetch --all
 git reset --hard origin/main
 git pull origin main
 
-# Gradle 실행 권한 설정
-chmod 700 gradlew
-sudo chmod -R 755 .
-
-# 컨테이너 및 이미지 이름
-APP_CONTAINER_NAME=web-server-app
-APP_OLD_IMAGES_NAME=monthly-ib_app
-NGINX_CONTAINER_NAME=nginx_server
-NGINX_OLD_IMAGES_NAME=nginx
-CERTBOT_CONTAINER_NAME=certbot
-CERTBOT_OLD_IMAGES_NAME=certbot/certbot
-
-# 기존 컨테이너 및 이미지 정리
-cleanup_old_container_and_images() {
-  local container_name=$1
-  local image_reference=$2
-
-  if [ "$(sudo docker ps -q -f name=$container_name)" ]; then
-    echo "Stopping existing ${container_name} container..."
-    sudo docker stop $container_name
-    sudo docker rm $container_name
-  fi
-
-  OLD_IMAGES=$(sudo docker images -aq --filter "reference=$image_reference")
-  if [ ! -z "$OLD_IMAGES" ]; then
-    echo "Removing old images for reference: ${image_reference}..."
-    sudo docker rmi -f $OLD_IMAGES
-  fi
-}
-
-cleanup_old_container_and_images "$APP_CONTAINER_NAME" "$APP_OLD_IMAGES_NAME"
-cleanup_old_container_and_images "$NGINX_CONTAINER_NAME" "$NGINX_OLD_IMAGES_NAME"
-cleanup_old_container_and_images "$CERTBOT_CONTAINER_NAME" "$CERTBOT_OLD_IMAGES_NAME"
-
 # Gradle 빌드
+chmod 700 gradlew
 ./gradlew clean build -x test
 
-# Docker Compose 빌드 및 실행
-sudo docker-compose -f $BUILD/docker-compose.yml build
-sudo docker-compose -f $BUILD/docker-compose.yml up -d
+# systemd 서비스 파일 생성 (없을 경우)
+SERVICE_FILE=/etc/systemd/system/$SERVICE_NAME.service
+if [ ! -f "$SERVICE_FILE" ]; then
+  sudo tee $SERVICE_FILE > /dev/null <<EOF
+[Unit]
+Description=MonthlyIB Spring Boot Application
+After=network.target
 
-echo "Deploy complete."
+[Service]
+User=ubuntu
+WorkingDirectory=$BUILD
+ExecStart=/usr/bin/java -jar $JAR_PATH --spring.profiles.active=dev
+SuccessExitStatus=143
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=$SERVICE_NAME
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  sudo systemctl daemon-reload
+  sudo systemctl enable $SERVICE_NAME
+fi
+
+# 서비스 재시작
+sudo systemctl restart $SERVICE_NAME
+
+echo "Deploy complete. App starting on port 8987..."
+sleep 5
+sudo systemctl status $SERVICE_NAME --no-pager
