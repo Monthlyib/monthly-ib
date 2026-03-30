@@ -18,10 +18,14 @@ import com.monthlyib.server.event.UserVerificationEvent;
 import com.monthlyib.server.exception.ServiceLogicException;
 import com.monthlyib.server.file.service.FileService;
 import com.monthlyib.server.openapi.user.dto.*;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -32,6 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -39,6 +44,8 @@ import java.util.UUID;
 @Transactional
 @Slf4j
 public class UserService {
+
+    private static final String REFRESH_TOKEN_COOKIE = "refreshToken";
 
     private final PasswordEncoder passwordEncoder;
 
@@ -68,7 +75,7 @@ public class UserService {
     }
     
 
-    public LoginApiResponseDto userLogin(LoginDto loginDto) {
+    public LoginApiResponseDto userLogin(LoginDto loginDto, HttpServletRequest request, HttpServletResponse response) {
         String username = loginDto.getUsername();
         String password = loginDto.getPassword();
         User findUser = findUserByUsername(username);
@@ -76,6 +83,7 @@ public class UserService {
         verifyUserStatus(userStatus);
         if (password.equals(findUser.getPassword()) || passwordEncoder.matches(password, findUser.getPassword())) {
             Token token = tokenizer.delegateToken(findUser);
+            attachRefreshTokenCookie(request, response, token.getRefreshToken());
             return LoginApiResponseDto.of(token.getAccessToken(), findUser);
         } else {
             throw new ServiceLogicException(ErrorCode.WRONG_PASSWORD);
@@ -84,11 +92,13 @@ public class UserService {
 
     public LoginApiResponseDto loginSocial(
             SocialLoginDto socialLoginDto,
+            HttpServletRequest request,
             HttpServletResponse response) {
         String email = httpClientService.generateLoginRequest(socialLoginDto);
         try {
             User user = createOrVerifiedUserByEmailAndLoginType(email, socialLoginDto.getLoginType());
             Token token = tokenizer.delegateToken(user);
+            attachRefreshTokenCookie(request, response, token.getRefreshToken());
             response.setHeader("userId", String.valueOf(user.getUserId()));
             response.setHeader("userStatus", user.getUserStatus().name());
             return LoginApiResponseDto.of(token.getAccessToken(), user);
@@ -102,12 +112,13 @@ public class UserService {
         }
     }
 
-    public LoginApiResponseDto loginSocialNaver(NaverLoginRequest naverLoginRequest, HttpServletResponse response) {
+    public LoginApiResponseDto loginSocialNaver(NaverLoginRequest naverLoginRequest, HttpServletRequest request, HttpServletResponse response) {
         OauthInfo info = naverAuthService.getNaverInfo(naverLoginRequest);
         String email = info.getEmail();
         try {
             User user = createOrVerifiedUserByEmailAndLoginType(email, info.getLoginType().name());
             Token token = tokenizer.delegateToken(user);
+            attachRefreshTokenCookie(request, response, token.getRefreshToken());
             response.setHeader("userId", String.valueOf(user.getUserId()));
             response.setHeader("userStatus", user.getUserStatus().name());
             return LoginApiResponseDto.of(token.getAccessToken(), user);
@@ -121,12 +132,22 @@ public class UserService {
         }
     }
 
-    public UserResponseDto findUserById(Long userId) {
-
+    public UserResponseDto findUserById(Long userId, User requestUser) {
+        validateAdminOrSelf(requestUser, userId);
         return UserResponseDto.of(findUserEntity(userId), firstUserImage(userId));
     }
 
-    public UserResponseDto updateUser(Long userId, UserPatchRequestDto dto) {
+    public UserResponseDto findUserByIdForSystem(Long userId) {
+        return UserResponseDto.of(findUserEntity(userId), firstUserImage(userId));
+    }
+
+    public UserResponseDto updateUser(Long userId, UserPatchRequestDto dto, User requestUser) {
+        validateAdminOrSelf(requestUser, userId);
+        if (!isAdmin(requestUser)) {
+            dto.setAuthority(null);
+            dto.setUserStatus(null);
+            dto.setMemo(null);
+        }
         User findUser = findUserEntity(userId);
         String password = dto.getPassword();
         if (password != null) {
@@ -137,7 +158,8 @@ public class UserService {
         return UserResponseDto.of(userRepository.save(updateUser), firstUserImage(userId));
     }
 
-    public UserResponseDto updateSocialUser(Long userId, UserSocialPatchRequestDto dto) {
+    public UserResponseDto updateSocialUser(Long userId, UserSocialPatchRequestDto dto, User requestUser) {
+        validateAdminOrSelf(requestUser, userId);
         User findUser = findUserEntity(userId);
         User updateUser = findUser.updateSocialUser(dto);
         updateUser.setUserStatus(UserStatus.ACTIVE);
@@ -215,15 +237,9 @@ public class UserService {
     }
 
     public void deleteUser(Long userId, User user) {
-        if (user.getAuthority().equals(Authority.ADMIN)) {
-            User findUser = findUserEntity(userId);
-            findUser.setUserStatus(UserStatus.INACTIVE);
-            userRepository.save(findUser);
+        if (!isAdmin(user) && !isSameUser(user, userId)) {
+            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
         }
-
-    }
-
-    public void deleteUser(Long userId) {
         User findUser = findUserEntity(userId);
         findUser.setUserStatus(UserStatus.INACTIVE);
         userRepository.save(findUser);
@@ -250,13 +266,24 @@ public class UserService {
         }
     }
 
-    public LoginApiResponseDto refreshToken(Long userId) {
+    public LoginApiResponseDto refreshToken(Long userId, HttpServletRequest request, HttpServletResponse response) {
         try {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
+            String refreshToken = getCookieValue(request, REFRESH_TOKEN_COOKIE);
+            if (refreshToken == null || refreshToken.isBlank()) {
+                throw new ServiceLogicException(ErrorCode.NOT_FOUND_COOKIE);
+            }
             RefreshDto refresh = refreshService.getRefresh(user.getUsername());
-            tokenizer.verifyAccessToken(refresh.getRefreshToken());
+            tokenizer.verifyAccessToken(refreshToken);
+            if (!Objects.equals(refresh.getRefreshToken(), refreshToken)) {
+                throw new ServiceLogicException(ErrorCode.EXPIRED_REFRESH_TOKEN);
+            }
+            if (!Objects.equals(user.getUsername(), tokenizer.getUsername(refreshToken))) {
+                throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+            }
             Token token = tokenizer.delegateToken(user);
+            attachRefreshTokenCookie(request, response, token.getRefreshToken());
             return LoginApiResponseDto.of(token.getAccessToken(), user);
         } catch (ServiceLogicException e) {
             throw e;
@@ -265,7 +292,8 @@ public class UserService {
         }
     }
 
-    public UserResponseDto createOrUpdateUserImage(Long userId, MultipartFile[] files) {
+    public UserResponseDto createOrUpdateUserImage(Long userId, MultipartFile[] files, User requestUser) {
+        validateAdminOrSelf(requestUser, userId);
         User findUser = findUserEntity(userId);
         List<UserImage> currentList = userRepository.findAllUserImage(userId);
         if (!currentList.isEmpty()) {
@@ -316,6 +344,50 @@ public class UserService {
         } else {
             return image.get(0);
         }
+    }
+
+    private void validateAdminOrSelf(User requestUser, Long targetUserId) {
+        if (!isAdmin(requestUser) && !isSameUser(requestUser, targetUserId)) {
+            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+        }
+    }
+
+    private boolean isAdmin(User user) {
+        return user.getAuthority().equals(Authority.ADMIN);
+    }
+
+    private boolean isSameUser(User user, Long targetUserId) {
+        return user.getUserId().equals(targetUserId);
+    }
+
+    private String getCookieValue(HttpServletRequest request, String name) {
+        if (request.getCookies() == null) {
+            return null;
+        }
+        for (Cookie cookie : request.getCookies()) {
+            if (name.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
+    }
+
+    private void attachRefreshTokenCookie(HttpServletRequest request, HttpServletResponse response, String refreshToken) {
+        boolean secure = request.isSecure() || Optional.ofNullable(request.getHeader("Origin"))
+                .map(origin -> origin.startsWith("https://"))
+                .orElse(false);
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(REFRESH_TOKEN_COOKIE, refreshToken)
+                .httpOnly(true)
+                .path("/")
+                .maxAge(60L * 60 * 24 * 35);
+
+        if (secure) {
+            builder.secure(true).sameSite("None");
+        } else {
+            builder.secure(false).sameSite("Lax");
+        }
+
+        response.addHeader(HttpHeaders.SET_COOKIE, builder.build().toString());
     }
 
 }

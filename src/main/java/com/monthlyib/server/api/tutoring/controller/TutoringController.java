@@ -40,8 +40,8 @@ public class TutoringController implements TutoringControllerIfs{
 
     @Override
     @GetMapping("/time")
-    public ResponseEntity<ResponseDto<?>> getTimeTutoringList(TutoringTimeSearchDto requestDto) {
-        List<TutoringResponseDto> response = tutoringService.findTimeTutoring(requestDto);
+    public ResponseEntity<ResponseDto<?>> getTimeTutoringList(TutoringTimeSearchDto requestDto, User user) {
+        List<TutoringResponseDto> response = tutoringService.findTimeTutoring(requestDto, user);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 

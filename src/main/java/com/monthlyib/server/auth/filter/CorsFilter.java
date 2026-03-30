@@ -11,35 +11,41 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Set;
 
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @Slf4j
 public class CorsFilter extends OncePerRequestFilter {
+
+    private static final Set<String> ALLOWED_ORIGINS = Set.of(
+            "http://localhost:3000",
+            "https://www.monthly-ib.com",
+            "https://monthly-ib.com"
+    );
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
-        List<String> list = List.of(
-                "http://localhost:3000",
-                "https://www.monthly-ib.com"
-        );
         String originUrl = request.getHeader("Origin");
-        String origin = list.stream().filter(
-                o -> o.equals(originUrl)
-        ).findFirst().orElse(originUrl);
-        response.setHeader("Access-Control-Allow-Origin", origin);
+        boolean allowedOrigin = originUrl != null && ALLOWED_ORIGINS.contains(originUrl);
+        if (allowedOrigin) {
+            response.setHeader("Access-Control-Allow-Origin", originUrl);
+            response.setHeader("Vary", "Origin");
+        }
         response.setHeader("Access-Control-Allow-Methods","GET, POST, DELETE, PATCH, OPTIONS");
         response.setHeader("Access-Control-Max-Age", "3600");
         response.setHeader("Access-Control-Expose-Headers", "Authorization, userId, userStatus, Content-Disposition");
-        response.setHeader("Access-Control-Allow-Credentials", "true");
+        if (allowedOrigin) {
+            response.setHeader("Access-Control-Allow-Credentials", "true");
+        }
         response.setHeader("Access-Control-Allow-Headers",
                 "Origin, X-Requested-With, Content-Type, Accept, Key, Authorization, Authorization, userId, userStatus, Content-Disposition, Timeout");
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
-            response.setStatus(HttpServletResponse.SC_OK);
+            response.setStatus(allowedOrigin ? HttpServletResponse.SC_OK : HttpServletResponse.SC_FORBIDDEN);
         } else {
             filterChain.doFilter(request, response);
         }

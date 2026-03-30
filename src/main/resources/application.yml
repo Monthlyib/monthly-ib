@@ -2,8 +2,10 @@ server:
   port: 8987
 
 spring:
-  #profiles:
-    #active: dev
+  config:
+    import: optional:classpath:env.yml
+  profiles:
+    active: dev
   servlet:
     multipart:
       max-file-size: 300MB

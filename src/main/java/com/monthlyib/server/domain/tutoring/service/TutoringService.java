@@ -79,7 +79,10 @@ public class TutoringService {
         return TutoringDetailResponseDto.of(dto.getDate(), PageResponseDto.of(response, response.getContent(), Result.ok()));
     }
 
-    public List<TutoringResponseDto> findTimeTutoring(TutoringTimeSearchDto dto) {
+    public List<TutoringResponseDto> findTimeTutoring(TutoringTimeSearchDto dto, User user) {
+        if (!user.getAuthority().equals(Authority.ADMIN)) {
+            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+        }
         return tutoringRepository.findAllByDate(dto.getDate(), dto.getHour(), dto.getMinute())
                 .stream().map(TutoringResponseDto::of).toList();
     }
@@ -89,11 +92,14 @@ public class TutoringService {
         if (find.size() == 3) {
             throw new ServiceLogicException(ErrorCode.BAD_REQUEST);
         }
-        Tutoring newTutoring = Tutoring.create(dto, user.getUsername(), user.getNickName());
+        Tutoring newTutoring = Tutoring.create(dto, user.getUserId(), user.getUsername(), user.getNickName());
         Tutoring save = tutoringRepository.save(newTutoring);
 
         SubscribeUser findSubUser = subscribeRepository.findSubscribeUserByUserIdAndStatus(save.getRequestUserId(), SubscribeStatus.ACTIVE)
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
+        if (findSubUser.getTutoringCount() <= 0) {
+            throw new ServiceLogicException(ErrorCode.BAD_REQUEST_TUTORING);
+        }
         int tutoringCount = findSubUser.getTutoringCount();
         findSubUser.setTutoringCount(tutoringCount - 1);
         subscribeRepository.saveSubscribeUser(findSubUser);
@@ -110,7 +116,7 @@ public class TutoringService {
         findTutoring.setDetail(Optional.ofNullable(dto.getDetail()).orElse(findTutoring.getDetail()));
         TutoringStatus tutoringStatus = dto.getTutoringStatus();
         findTutoring.setTutoringStatus(Optional.ofNullable(tutoringStatus).orElse(findTutoring.getTutoringStatus()));
-        if (tutoringStatus.equals(TutoringStatus.CONFIRM)) {
+        if (TutoringStatus.CONFIRM.equals(tutoringStatus)) {
             User findUser = userRepository.findById(findTutoring.getRequestUserId())
                     .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
             publisher.publishEvent(new UserTutoringConfirmEvent(this, findUser.getEmail(), findUser.getUsername()));

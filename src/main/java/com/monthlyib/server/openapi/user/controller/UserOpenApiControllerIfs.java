@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,7 +36,9 @@ public interface UserOpenApiControllerIfs {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
     })
     ResponseEntity<ResponseDto<?>> login(
-            @RequestBody LoginDto loginDto
+            @RequestBody LoginDto loginDto,
+            HttpServletRequest request,
+            HttpServletResponse response
     );
 
     @Operation(summary = "소셜 로그인 / 회원가입 요청", description = "바디 데이터 응답 확인")
@@ -52,6 +55,7 @@ public interface UserOpenApiControllerIfs {
     })
     ResponseEntity<ResponseDto<?>> loginSocial(
             @RequestBody SocialLoginDto loginDto,
+            HttpServletRequest request,
             HttpServletResponse response
     );
 
@@ -69,6 +73,7 @@ public interface UserOpenApiControllerIfs {
     })
     ResponseEntity<ResponseDto<?>> loginSocialNaver(
             @RequestBody NaverLoginRequest loginDto,
+            HttpServletRequest request,
             HttpServletResponse response
     );
 
@@ -83,7 +88,9 @@ public interface UserOpenApiControllerIfs {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
     })
     ResponseEntity<ResponseDto<?>> refreshToken(
-            @PathVariable @Parameter(description = "회원의 식별자", required = true) Long userId
+            @PathVariable @Parameter(description = "회원의 식별자", required = true) Long userId,
+            HttpServletRequest request,
+            HttpServletResponse response
     );
 
     class UserResponse extends ResponseDto<UserResponseDto> {}

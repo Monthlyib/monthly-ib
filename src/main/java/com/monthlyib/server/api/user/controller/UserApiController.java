@@ -36,29 +36,29 @@ public class UserApiController implements UserApiControllerIfs{
 
     @Override
     @GetMapping("/{userId}")
-    public ResponseEntity<ResponseDto<?>> getUser(Long userId) {
-        UserResponseDto res = userService.findUserById(userId);
+    public ResponseEntity<ResponseDto<?>> getUser(Long userId, User user) {
+        UserResponseDto res = userService.findUserById(userId, user);
         return ResponseEntity.ok(ResponseDto.of(res, Result.ok()));
     }
 
     @Override
     @PatchMapping("/{userId}")
     public ResponseEntity<ResponseDto<?>> patchUser(Long userId, UserPatchRequestDto requestDto, User user) {
-        UserResponseDto res = userService.updateUser(userId, requestDto);
+        UserResponseDto res = userService.updateUser(userId, requestDto, user);
         return ResponseEntity.ok(ResponseDto.of(res, Result.ok()));
     }
 
     @Override
     @PatchMapping("/social/{userId}")
     public ResponseEntity<ResponseDto<?>> patchSocialUser(Long userId, UserSocialPatchRequestDto requestDto, User user) {
-        UserResponseDto res = userService.updateSocialUser(userId, requestDto);
+        UserResponseDto res = userService.updateSocialUser(userId, requestDto, user);
         return ResponseEntity.ok(ResponseDto.of(res, Result.ok()));
     }
 
     @Override
     @DeleteMapping("/{userId}")
     public ResponseEntity<ResponseDto<?>> deleteUser(Long userId, User user) {
-        userService.deleteUser(userId);
+        userService.deleteUser(userId, user);
         return ResponseEntity.ok(ResponseDto.of(Result.ok()));
     }
 
@@ -80,7 +80,7 @@ public class UserApiController implements UserApiControllerIfs{
     @Override
     @PostMapping("/image/{userId}")
     public ResponseEntity<ResponseDto<?>> postUserImage(Long userId, MultipartFile[] multipartFile, User user) {
-        UserResponseDto res = userService.createOrUpdateUserImage(userId, multipartFile);
+        UserResponseDto res = userService.createOrUpdateUserImage(userId, multipartFile, user);
         return ResponseEntity.ok(ResponseDto.of(res, Result.ok()));
 
     }

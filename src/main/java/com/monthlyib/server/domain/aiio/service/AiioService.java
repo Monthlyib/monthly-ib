@@ -1,28 +1,19 @@
 package com.monthlyib.server.domain.aiio.service;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.monthlyib.server.api.aiio.dto.AiioPatchDto;
 import com.monthlyib.server.api.aiio.dto.AiioPostDto;
 import com.monthlyib.server.constant.AwsProperty;
 import com.monthlyib.server.constant.ErrorCode;
+import com.monthlyib.server.domain.ai.service.OpenAiClientService;
 import com.monthlyib.server.domain.aiio.entity.VoiceFeedback;
 import com.monthlyib.server.domain.aiio.repository.VoiceFeedbackRepository;
 import com.monthlyib.server.domain.user.entity.User;
@@ -41,19 +32,7 @@ public class AiioService {
     private final VoiceFeedbackRepository voiceFeedbackRepository;
     private final FileService fileService;
     private final ObjectMapper objectMapper;
-
-    // ChatGPT API URL
-    private final String openaiUrl = "https://api.openai.com/v1/chat/completions";
-
-    @Value("${OPENAI_API_KEY}")
-    private String openaiApiKey;
-
-    // 1단계 전용 어시스턴트 키 (단어별 분석용)
-    @Value("${CHATGPT_ASSISTANT_KEY}")
-    private String chatGptAssistantId; 
-
-    @Value("${CHATGPT_FINAL_ASSISTANT_KEY}")
-    private String chatGptFinalAssistantId; 
+    private final OpenAiClientService openAiClientService;
 
     /**
      * AiioPostDto와 사용자 정보를 이용하여
@@ -88,11 +67,20 @@ public class AiioService {
                     uniqueAudioPath);
 
             // 4. Whisper API 호출: audioFile을 전송하여 verbose JSON 응답 획득
-            String whisperVerboseResponse = callWhisperAPI(audioFile);
+            String whisperVerboseResponse = openAiClientService.transcribe(
+                    audioFile,
+                    "whisper-1",
+                    "verbose_json",
+                    null,
+                    List.of("word"));
             log.warn("Whisper API Response: {}", whisperVerboseResponse);
-            String gpt4oTransResponse = callGPT4oTRANSAPI(audioFile);
+            String gpt4oTransResponse = openAiClientService.transcribe(
+                    audioFile,
+                    "gpt-4o-transcribe",
+                    "json",
+                    List.of("logprobs"),
+                    null);
             log.warn("GPT4oTRANS API Response: {}", gpt4oTransResponse);
-            JsonNode gpt4oTransRoot = objectMapper.readTree(gpt4oTransResponse);
 
             JsonNode whisperRoot = objectMapper.readTree(whisperVerboseResponse);
             log.warn("Whisper Root: {}", whisperRoot);
@@ -109,14 +97,18 @@ public class AiioService {
                     + whisperVerboseResponse
                     +"아래는 chat gpt 4o-transcribe API로부터 추출된 단어별 데이터로, 단어별 정확도 정보를 logprob으로 담고 있습니다.:\n\n"
                     + gpt4oTransResponse;
-            String analysisSummary = callChatGptAssistant(analysisPrompt, chatGptAssistantId);
+            String analysisSummary = openAiClientService.chat(
+                    "당신은 IB Individual Oral 발표의 발음, 속도, 긴장도 패턴을 분석하는 코치입니다. 사용자가 제공한 지시를 따르고 한국어로 명확하게 요약하세요.",
+                    analysisPrompt);
             log.warn("Analysis Summary: {}", analysisSummary);
 
             // 7. 최종 피드백용 프롬프트 구성: 평가 지침, Whisper 전사 결과, 분석 요약, 대본 파일 정보, 토픽/제목/작가 정보 포함
             String finalPrompt = generateFinalPrompt(postDto, whisperTranscript, analysisSummary, scriptFile);
 
             // 8. 최종 ChatGPT 호출 (assistant를 통한 호출)
-            String finalFeedback = callChatGptAssistant(finalPrompt, chatGptFinalAssistantId);
+            String finalFeedback = openAiClientService.chat(
+                    "당신은 IB Individual Oral 발표 평가 코치입니다. 사용자가 제공한 채점 기준을 엄격히 따르고, 결과는 한국어 평문 피드백으로만 작성하세요.",
+                    finalPrompt);
             log.warn("Final Feedback: {}", finalFeedback);
 
             // 9. VoiceFeedback 엔티티 생성 및 저장
@@ -131,9 +123,11 @@ public class AiioService {
                     .build();
 
             return voiceFeedbackRepository.saveFeedback(voiceFeedback);
+        } catch (ServiceLogicException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error in createFeedback: ", e);
-            throw new ServiceLogicException(ErrorCode.NOT_FOUND);
+            throw new ServiceLogicException(ErrorCode.INTERNAL_SERVER_ERROR, "AI 음성 피드백 생성 실패");
         }
     }
 
@@ -145,121 +139,6 @@ public class AiioService {
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
         voiceFeedback.update(patchDto);
         return voiceFeedbackRepository.saveFeedback(voiceFeedback);
-    }
-
-    /**
-     * Whisper API를 호출하여 audioFile의 verbose JSON 응답을 반환합니다.
-     * 파일 이름은 "input.webm"으로 지정합니다.
-     */
-    private String callGPT4oTRANSAPI(MultipartFile audioFile) throws Exception {
-        String whisperUrl = "https://api.openai.com/v1/audio/transcriptions";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        headers.setBearerAuth(openaiApiKey);
-
-
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        ByteArrayResource fileAsResource = new ByteArrayResource(audioFile.getBytes()) {
-            @Override
-            public String getFilename() {
-                return "input.webm";
-            }
-        };
-
-        log.warn("audioFile: {}", audioFile.getContentType());
-        body.add("file", fileAsResource);
-        body.add("model", "gpt-4o-transcribe");
-        body.add("response_format", "json");
-        // body.put("timestamp_granularities[]", java.util.Arrays.asList("word"));
-        body.put("include[]", java.util.Arrays.asList("logprobs"));
-        // 필요 시 언어 설정 추가 (예: body.add("language", "ko"));
-
-        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
-        RestTemplate restTemplate = new RestTemplate();
-        ResponseEntity<String> response = restTemplate.postForEntity(whisperUrl, requestEntity, String.class);
-        return response.getBody();
-    }
-
-    private String callWhisperAPI(MultipartFile audioFile) throws Exception {
-        String whisperUrl = "https://api.openai.com/v1/audio/transcriptions";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        headers.setBearerAuth(openaiApiKey);
-
-
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        ByteArrayResource fileAsResource = new ByteArrayResource(audioFile.getBytes()) {
-            @Override
-            public String getFilename() {
-                return "input.webm";
-            }
-        };
-
-        log.warn("audioFile: {}", audioFile.getContentType());
-        body.add("file", fileAsResource);
-        body.add("model", "whisper-1");
-        body.add("response_format", "verbose_json");
-        // body.put("timestamp_granularities[]", java.util.Arrays.asList("word"));
-        body.put("timestamp_granularities[]", java.util.Arrays.asList("word"));
-        // 필요 시 언어 설정 추가 (예: body.add("language", "ko"));
-
-        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
-        RestTemplate restTemplate = new RestTemplate();
-        ResponseEntity<String> response = restTemplate.postForEntity(whisperUrl, requestEntity, String.class);
-        return response.getBody();
-    }
-
-
-
-    private String callChatGptAssistant(String prompt, String assistantKey) throws Exception {
-        ObjectNode requestBody = objectMapper.createObjectNode();
-        requestBody.put("model", "gpt-4o");
-        ArrayNode messages = objectMapper.createArrayNode();
-        ObjectNode message = objectMapper.createObjectNode();
-        message.put("role", "user");
-        message.put("content", prompt);
-        messages.add(message);
-        requestBody.set("messages", messages);
-
-        String requestJson = objectMapper.writeValueAsString(requestBody);
-
-        RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(openaiApiKey);
-        headers.set("assistant_id", assistantKey);
-
-        HttpEntity<String> requestEntity = new HttpEntity<>(requestJson, headers);
-        ResponseEntity<String> response = restTemplate.postForEntity(openaiUrl, requestEntity, String.class);
-        JsonNode root = objectMapper.readTree(response.getBody());
-        return root.path("choices").get(0).path("message").path("content").asText();
-    }
-
-    /**
-     * 일반 ChatGPT API 호출 (assistant 설정 없이)를 위한 메서드.
-     */
-    private String callChatGptChat(String prompt) throws Exception {
-        ObjectNode requestBody = objectMapper.createObjectNode();
-        requestBody.put("model", "gpt-4o");
-        ArrayNode messages = objectMapper.createArrayNode();
-        ObjectNode message = objectMapper.createObjectNode();
-        message.put("role", "user");
-        message.put("content", prompt);
-        messages.add(message);
-        requestBody.set("messages", messages);
-
-        String requestJson = objectMapper.writeValueAsString(requestBody);
-
-        RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(openaiApiKey);
-        // Assistant-Key 헤더는 설정하지 않습니다.
-
-        HttpEntity<String> requestEntity = new HttpEntity<>(requestJson, headers);
-        ResponseEntity<String> response = restTemplate.postForEntity(openaiUrl, requestEntity, String.class);
-        JsonNode root = objectMapper.readTree(response.getBody());
-        return root.path("choices").get(0).path("message").path("content").asText();
     }
 
     /**
@@ -391,19 +270,6 @@ public class AiioService {
                 + "  2. 대본 파일에서 수정 또는 보완해야 할 부분\n"
                 + "토픽: " + dto.getIocTopic() + ", 제목: " + dto.getWorkTitle() + ", 작가: " + dto.getAuthor();
         return finalPrompt;
-    }
-
-    /**
-     * ChatGPT API의 응답에서 피드백 텍스트를 추출합니다.
-     */
-    private String extractFeedbackFromResponse(String responseBody) {
-        try {
-            JsonNode root = objectMapper.readTree(responseBody);
-            return root.path("choices").get(0).path("message").path("content").asText();
-        } catch (Exception e) {
-            log.error("Error parsing ChatGPT API response", e);
-            return "피드백 생성 중 오류가 발생했습니다.";
-        }
     }
 
 }

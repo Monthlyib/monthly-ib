@@ -50,40 +50,21 @@ public class JwtTokenizer {
     }
 
     /* jwt 토큰을 생성 */
-    private Token generateToken(
+    private String generateToken(
             Map<String, Object> claims,
             String subject,
+            int expirationMinutes,
             String base64EncodedSecretKey
     ) {
         Key key = getKeyFromBase64EncodedSecretKey(base64EncodedSecretKey);
 
-        return new Token(
-                "Bearer " + Jwts.builder()
-                        .setClaims(claims)
-                        .setSubject(subject)
-                        .setIssuedAt(Calendar.getInstance().getTime())
-                        .setExpiration(getTokenExpiration(accessTokenExpirationMinutes))
-                        .signWith(key)
-                        .compact());
-
-    }
-
-    private Token generateRefreshToken(
-            Map<String, Object> claims,
-            String subject,
-            String base64EncodedSecretKey
-    ) {
-        Key key = getKeyFromBase64EncodedSecretKey(base64EncodedSecretKey);
-
-        return new Token(
-                "Bearer " + Jwts.builder()
-                        .setClaims(claims)
-                        .setSubject(subject)
-                        .setIssuedAt(Calendar.getInstance().getTime())
-                        .setExpiration(getTokenExpiration(refreshTokenExpirationMinutes))
-                        .signWith(key)
-                        .compact());
-
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(subject)
+                .setIssuedAt(Calendar.getInstance().getTime())
+                .setExpiration(getTokenExpiration(expirationMinutes))
+                .signWith(key)
+                .compact();
     }
 
     /* user 매개변수를 받아 jwt 토큰을 생성 */
@@ -98,9 +79,10 @@ public class JwtTokenizer {
         claims.put("roles", user.getRoles());
         String subject = user.getUsername();
         String base64SecretKey = encodeBase64SecretKey(getSecretKey());
-        Token refreshToken = generateRefreshToken(claims, subject, base64SecretKey);
-        refreshService.createRefresh(user.getUsername(), refreshToken.getAccessToken());
-        return generateToken(claims, subject, base64SecretKey);
+        String accessToken = "Bearer " + generateToken(claims, subject, accessTokenExpirationMinutes, base64SecretKey);
+        String refreshToken = generateToken(claims, subject, refreshTokenExpirationMinutes, base64SecretKey);
+        refreshService.createRefresh(user.getUsername(), refreshToken);
+        return new Token(accessToken, refreshToken);
     }
 
 

@@ -1,50 +1,39 @@
 package com.monthlyib.server.domain.aidescriptive.service;
 
-import java.util.Map;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.monthlyib.server.api.aidescriptive.dto.AiDescriptiveResponseDto;
 import com.monthlyib.server.api.aidescriptive.dto.AiDescriptiveResultDto;
 import com.monthlyib.server.api.aidescriptive.dto.AiDescriptiveTestDto;
 import com.monthlyib.server.api.aidescriptive.dto.GptFeedbackResult;
 import com.monthlyib.server.api.aidescriptive.dto.SubmitDescriptiveAnswerDto;
 import com.monthlyib.server.constant.AwsProperty;
+import com.monthlyib.server.constant.ErrorCode;
+import com.monthlyib.server.domain.ai.service.OpenAiClientService;
 import com.monthlyib.server.domain.aidescriptive.entity.AiDescriptiveAnswer;
 import com.monthlyib.server.domain.aidescriptive.entity.AiDescriptiveTest;
 import com.monthlyib.server.domain.aidescriptive.repository.AiDescriptiveAnswerRepository;
 import com.monthlyib.server.domain.aidescriptive.repository.AiDescriptiveTestRepository;
 import com.monthlyib.server.domain.user.entity.User;
+import com.monthlyib.server.exception.ServiceLogicException;
 import com.monthlyib.server.file.service.FileService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AiDescriptiveService {
 
     private final AiDescriptiveTestRepository descriptiveTestRepository;
     private final AiDescriptiveAnswerRepository answerRepository;
     private final FileService fileService;
-    private final ObjectMapper objectMapper;
-
-    @Value("${openai.api-key}")
-    private String openAiApiKey;
+    private final OpenAiClientService openAiClientService;
 
     public AiDescriptiveResponseDto createTest(AiDescriptiveTestDto dto) {
         AiDescriptiveTest test = AiDescriptiveTest.builder()
@@ -198,119 +187,67 @@ public class AiDescriptiveService {
         return resultDto;
     }
 
-    private GptFeedbackResult callGptFeedbackApi(String subject, String answerText, String questionText, int maxScore, String imagePath) {
+    private GptFeedbackResult callGptFeedbackApi(
+            String subject,
+            String answerText,
+            String questionText,
+            int maxScore,
+            String imagePath) {
         try {
-            Map<String, String> assistantMap = Map.of(
-                    "Biology", "asst_Qr7bj6DItbg8hxlgoJm3WrDu",
-                    "Chemistry", "asst_35NPwAbblAorxdFbedt5xvJQ",
-                    "Physics", "asst_bHLrpIRJEkwEMvgSUjgMgT7i",
-                    "English", "asst_ZFcy4RektFoeeUehkbVhKYNg",
-                    "Econ", "asst_DDWY6eyZ81VgcNi7yYiT3t4u",
-                    "Business", "asst_RKORBIO2nXcHxKpN550BT8cq",
-                    "Psychology", "asst_XNOHoOkw7onEg1qqqWqS44lY",
-                    "MathAA", "asst_MathAA_id");
-            String assistantId = assistantMap.getOrDefault(subject, "asst_default_id").trim();
+            String systemPrompt = """
+                    You are an IB descriptive-answer grader.
+                    Evaluate the student's answer for the given subject and question.
+                    Return valid JSON only with this exact structure:
+                    {
+                      "score": integer,
+                      "max_score": integer,
+                      "student_answer": string,
+                      "model_answer": string,
+                      "improvement": {
+                        "ko": string,
+                        "en": string
+                      }
+                    }
+                    Rules:
+                    - score must be an integer between 0 and max_score.
+                    - max_score must echo the provided maximum score.
+                    - model_answer should be concise but academically sound.
+                    - improvement.ko must be Korean feedback.
+                    - improvement.en must be English feedback.
+                    - Use the provided image only when it is relevant to the question.
+                    - Do not output markdown or extra text outside JSON.
+                    """;
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + openAiApiKey);
-            headers.set("OpenAI-Beta", "assistants=v2");
+            String userPrompt = """
+                    Subject: %s
+                    Question: %s
+                    Max Score: %d
+                    Student Answer: %s
+                    """.formatted(subject, questionText, maxScore, answerText);
 
-            RestTemplate restTemplate = new RestTemplate();
+            JsonNode contentNode = openAiClientService.chatForJson(
+                    systemPrompt,
+                    openAiClientService.createUserContent(userPrompt, imagePath));
 
-            try {
-                ResponseEntity<JsonNode> assistantsResponse = restTemplate.exchange(
-                        "https://api.openai.com/v1/assistants",
-                        HttpMethod.GET,
-                        new HttpEntity<>(headers),
-                        JsonNode.class);
-                Logger logger = LoggerFactory.getLogger(AiDescriptiveService.class);
-            } catch (Exception ex) {
-                Logger logger = LoggerFactory.getLogger(AiDescriptiveService.class);
-                logger.warn("Failed to fetch assistant list: {}", ex.getMessage());
+            int normalizedScore = Math.max(0, Math.min(contentNode.path("score").asInt(0), maxScore));
+            String modelAnswer = contentNode.path("model_answer").asText("");
+            if (modelAnswer.isBlank()) {
+                modelAnswer = "모범 답안을 생성하지 못했습니다.";
             }
-
-            // Create thread
-            ResponseEntity<JsonNode> threadResponse = restTemplate.exchange(
-                    "https://api.openai.com/v1/threads",
-                    HttpMethod.POST,
-                    new HttpEntity<>("{}", headers),
-                    JsonNode.class);
-            String threadId = threadResponse.getBody().path("id").asText();
-            Logger logger = LoggerFactory.getLogger(AiDescriptiveService.class);
-            // Add message to thread
-            ObjectNode messageBody = objectMapper.createObjectNode();
-            messageBody.put("role", "user");
-
-            ObjectNode contentText = objectMapper.createObjectNode();
-            contentText.put("type", "text");
-            contentText.put("text", String.format("Question: %s\nAnswer: %s\nMax Score: %d", questionText, answerText, maxScore));
-
-            if (imagePath != null && !imagePath.isBlank()) {
-                ObjectNode contentImage = objectMapper.createObjectNode();
-                contentImage.put("type", "image_url");
-                ObjectNode imageUrlNode = objectMapper.createObjectNode();
-                imageUrlNode.put("url", imagePath);
-                contentImage.set("image_url", imageUrlNode);
-                messageBody.set("content", objectMapper.createArrayNode().add(contentText).add(contentImage));
-            } else {
-                messageBody.set("content", objectMapper.createArrayNode().add(contentText));
-            }
-
-            HttpEntity<String> addMessageEntity = new HttpEntity<>(messageBody.toString(), headers);
-            restTemplate.exchange(
-                    "https://api.openai.com/v1/threads/" + threadId + "/messages",
-                    HttpMethod.POST,
-                    addMessageEntity,
-                    String.class);
-
-            // Run assistant
-            ObjectNode runRequest = objectMapper.createObjectNode();
-            runRequest.put("assistant_id", assistantId);
-            HttpEntity<String> runEntity = new HttpEntity<>(runRequest.toString(), headers);
-            ResponseEntity<JsonNode> runResponse = restTemplate.exchange(
-                    "https://api.openai.com/v1/threads/" + threadId + "/runs",
-                    HttpMethod.POST,
-                    runEntity,
-                    JsonNode.class);
-            String runId = runResponse.getBody().path("id").asText();
-
-            // Wait for run to complete
-            String status;
-            do {
-                Thread.sleep(1000);
-                ResponseEntity<JsonNode> statusResponse = restTemplate.exchange(
-                        "https://api.openai.com/v1/threads/" + threadId + "/runs/" + runId,
-                        HttpMethod.GET,
-                        new HttpEntity<>(headers),
-                        JsonNode.class);
-                status = statusResponse.getBody().path("status").asText();
-            } while (!"completed".equals(status));
-
-            // Fetch messages
-            ResponseEntity<JsonNode> messagesResponse = restTemplate.exchange(
-                    "https://api.openai.com/v1/threads/" + threadId + "/messages",
-                    HttpMethod.GET,
-                    new HttpEntity<>(headers),
-                    JsonNode.class);
-            String content = messagesResponse.getBody()
-                    .path("data").get(0)
-                    .path("content").get(0)
-                    .path("text").path("value").asText();
-            JsonNode contentNode = objectMapper.readTree(content);
 
             return GptFeedbackResult.builder()
-                    .score(contentNode.path("score").asInt())
-                    .maxScore(contentNode.path("max_score").asInt())
-                    .studentAnswer(contentNode.path("student_answer").asText())
-                    .modelAnswer(contentNode.path("model_answer").asText())
+                    .score(normalizedScore)
+                    .maxScore(maxScore)
+                    .studentAnswer(contentNode.path("student_answer").asText(answerText))
+                    .modelAnswer(modelAnswer)
                     .improvementKo(contentNode.path("improvement").path("ko").asText())
                     .improvementEn(contentNode.path("improvement").path("en").asText())
                     .build();
+        } catch (ServiceLogicException e) {
+            throw e;
         } catch (Exception e) {
-            Logger logger = LoggerFactory.getLogger(AiDescriptiveService.class);
-            logger.error("GPT API 호출 중 오류 발생", e);
-            throw new RuntimeException("GPT 피드백 생성 실패", e);
+            log.error("GPT API 호출 중 오류 발생", e);
+            throw new ServiceLogicException(ErrorCode.INTERNAL_SERVER_ERROR, "GPT 피드백 생성 실패");
         }
     }
 }

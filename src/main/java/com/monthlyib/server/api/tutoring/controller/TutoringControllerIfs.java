@@ -73,7 +73,8 @@ public interface TutoringControllerIfs {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
     })
     ResponseEntity<ResponseDto<?>> getTimeTutoringList(
-            @ModelAttribute TutoringTimeSearchDto requestDto
+            @ModelAttribute TutoringTimeSearchDto requestDto,
+            @UserSession @Parameter(hidden = true) User user
     );
     // 특정 회원의 튜터링 전체 조회
     class TutoringUser extends PageResponseDto<List<TutoringResponseDto>> { }

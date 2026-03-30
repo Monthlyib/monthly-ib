@@ -6,6 +6,7 @@ import com.monthlyib.server.domain.user.service.UserService;
 import com.monthlyib.server.dto.ResponseDto;
 import com.monthlyib.server.dto.Result;
 import com.monthlyib.server.openapi.user.dto.*;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,33 +26,35 @@ public class UserOpenApiController implements UserOpenApiControllerIfs {
     @Override
     @PostMapping("/login")
     public ResponseEntity<ResponseDto<?>> login(
-            LoginDto loginDto
+            LoginDto loginDto,
+            HttpServletRequest servletRequest,
+            HttpServletResponse servletResponse
     ) {
         log.info("# Verify Login User");
-        LoginApiResponseDto response = userService.userLogin(loginDto);
+        LoginApiResponseDto response = userService.userLogin(loginDto, servletRequest, servletResponse);
         return ResponseEntity.ok().body(ResponseDto.of(response, Result.ok()));
     }
 
     @Override
     @PostMapping("/login/social")
-    public ResponseEntity<ResponseDto<?>> loginSocial(SocialLoginDto loginDto, HttpServletResponse servletResponse) {
+    public ResponseEntity<ResponseDto<?>> loginSocial(SocialLoginDto loginDto, HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
         log.info("# Verify Social Login User");
-        LoginApiResponseDto response = userService.loginSocial(loginDto, servletResponse);
+        LoginApiResponseDto response = userService.loginSocial(loginDto, servletRequest, servletResponse);
         return ResponseEntity.ok().body(ResponseDto.of(response, Result.ok()));
     }
 
     @Override
     @PostMapping("/login/naver")
-    public ResponseEntity<ResponseDto<?>> loginSocialNaver(NaverLoginRequest loginDto, HttpServletResponse servletResponse) {
+    public ResponseEntity<ResponseDto<?>> loginSocialNaver(NaverLoginRequest loginDto, HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
         log.info("# Verify Social NAVER Login User");
-        LoginApiResponseDto response = userService.loginSocialNaver(loginDto, servletResponse);
+        LoginApiResponseDto response = userService.loginSocialNaver(loginDto, servletRequest, servletResponse);
         return ResponseEntity.ok().body(ResponseDto.of(response, Result.ok()));
     }
 
     @Override
     @PostMapping("/reissue-token/{userId}")
-    public ResponseEntity<ResponseDto<?>> refreshToken(Long userId) {
-        LoginApiResponseDto response = userService.refreshToken(userId);
+    public ResponseEntity<ResponseDto<?>> refreshToken(Long userId, HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
+        LoginApiResponseDto response = userService.refreshToken(userId, servletRequest, servletResponse);
         log.info("# Reissue Token");
         return ResponseEntity.ok().body(ResponseDto.of(response, Result.ok()));
     }

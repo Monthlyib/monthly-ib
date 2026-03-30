@@ -46,12 +46,12 @@ public class Tutoring extends Auditable {
     @Enumerated(EnumType.STRING)
     private TutoringStatus tutoringStatus;
 
-    public static Tutoring create(TutoringPostRequestDto dto, String requestUsername, String requestUserNickName) {
+    public static Tutoring create(TutoringPostRequestDto dto, Long requestUserId, String requestUsername, String requestUserNickName) {
         return Tutoring.builder()
                 .date(dto.getDate())
                 .hour(dto.getHour())
                 .minute(dto.getMinute())
-                .requestUserId(dto.getRequestUserId())
+                .requestUserId(requestUserId)
                 .requestUsername(requestUsername)
                 .requestUserNickName(requestUserNickName)
                 .detail(dto.getDetail())

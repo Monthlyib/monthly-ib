@@ -1,43 +1,36 @@
 package com.monthlyib.server.domain.aiia.service;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.monthlyib.server.constant.ErrorCode;
+import com.monthlyib.server.domain.ai.service.OpenAiClientService;
 import com.monthlyib.server.domain.aiia.entity.AiIARecommendation;
 import com.monthlyib.server.domain.aiia.repository.AiIARecommendationRepository;
 import com.monthlyib.server.domain.user.entity.User;
+import com.monthlyib.server.exception.ServiceLogicException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AiIAService {
 
     private final AiIARecommendationRepository aiIARecommendationRepository;
-
-    @Value("${openai.api-key}")
-    private String openAiApiKey;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final OpenAiClientService openAiClientService;
+    private final ObjectMapper objectMapper;
 
     public Map<String, Object> recommendTopics(String subject, String interest, User user) {
-        Logger log = LoggerFactory.getLogger(AiIAService.class);
         log.warn("[recommendTopics] subject={}, interest={}", subject, interest);
 
         AiIARecommendation recommendation = AiIARecommendation.builder()
@@ -49,297 +42,92 @@ public class AiIAService {
         aiIARecommendationRepository.save(recommendation);
 
         try {
-            Map<String, String> assistantMap = Map.of(
-                    "Science", "asst_AOfc3JgUHv0TEAt1TW3BlrUj",
-                    "Math", "asst_CTKqoWcoSQVxvGwvBEnLU1JK",
-                    "Langauge A English", "asst_MYL7Zgg1btoI9oxfqJFrJNTr",
-                    "Psychology", "asst_vR4kvb3si89JhVbStxx8zUy4",
-                    "Business", "asst_8THzNZp7ajvDqzTWUV6xbwT3",
-                    "History", "asst_2qQTQt9UMdA20f59rg7RtLt4",
-                    "Geography", "asst_CedDfZnJ8xP0Z6LRPzTQryS9",
-                    "Economics", "asst_FWEEdenoYroG02QPw8vZ0JnT");
-            String assistantId = assistantMap.getOrDefault(subject, "asst_default_id").trim();
-
-            log.warn("Using assistant ID: " + assistantId);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + openAiApiKey);
-            headers.set("OpenAI-Beta", "assistants=v2");
-
-            RestTemplate restTemplate = new RestTemplate();
-            ObjectMapper objectMapper = new ObjectMapper();
-
-            // Create thread
-            ResponseEntity<JsonNode> threadResponse = restTemplate.exchange(
-                    "https://api.openai.com/v1/threads",
-                    HttpMethod.POST,
-                    new HttpEntity<>("{}", headers),
-                    JsonNode.class);
-            String threadId = threadResponse.getBody().path("id").asText();
-
-            // Add message
-            ObjectNode messageBody = objectMapper.createObjectNode();
-            messageBody.put("role", "user");
-
-            ObjectNode contentText = objectMapper.createObjectNode();
-            contentText.put("type", "text");
-            contentText.put("text", String.format(
-                    "Subject: %s\nInterest: %s\nPlease recommend 3 suitable IA topics.", subject,
-                    interest));
-            messageBody.set("content", objectMapper.createArrayNode().add(contentText));
-
-            HttpEntity<String> addMessageEntity = new HttpEntity<>(messageBody.toString(), headers);
-            restTemplate.exchange(
-                    "https://api.openai.com/v1/threads/" + threadId + "/messages",
-                    HttpMethod.POST,
-                    addMessageEntity,
-                    String.class);
-
-            // Run assistant
-            ObjectNode runRequest = objectMapper.createObjectNode();
-            runRequest.put("assistant_id", assistantId);
-            HttpEntity<String> runEntity = new HttpEntity<>(runRequest.toString(), headers);
-            ResponseEntity<JsonNode> runResponse = restTemplate.exchange(
-                    "https://api.openai.com/v1/threads/" + threadId + "/runs",
-                    HttpMethod.POST,
-                    runEntity,
-                    JsonNode.class);
-            String runId = runResponse.getBody().path("id").asText();
-
-            // Wait for run to complete
-            String status;
-            do {
-                Thread.sleep(1000);
-                ResponseEntity<JsonNode> statusResponse = restTemplate.exchange(
-                        "https://api.openai.com/v1/threads/" + threadId + "/runs/" + runId,
-                        HttpMethod.GET,
-                        new HttpEntity<>(headers),
-                        JsonNode.class);
-                status = statusResponse.getBody().path("status").asText();
-            } while (!"completed".equals(status));
-
-            // Fetch messages
-            ResponseEntity<JsonNode> messagesResponse = restTemplate.exchange(
-                    "https://api.openai.com/v1/threads/" + threadId + "/messages",
-                    HttpMethod.GET,
-                    new HttpEntity<>(headers),
-                    JsonNode.class);
-            String content = messagesResponse.getBody()
-                    .path("data").get(0)
-                    .path("content").get(0)
-                    .path("text").path("value").asText();
-
-            recommendation.setTopics(content);
-            aiIARecommendationRepository.save(recommendation);
-
-            // Attempt to extract a single JSON object from the assistant response and
-            // forward as-is
-            String jsonCandidate = extractJsonBlock(content);
-
-            if (jsonCandidate != null) {
-                try {
-                    // Try parsing as JSON
-                    JsonNode node = objectMapper.readTree(jsonCandidate);
-                    // Return as a Map so the controller serializes it intact
-                    return objectMapper.convertValue(node, new TypeReference<Map<String, Object>>() {
-                    });
-                } catch (Exception parseEx) {
-                    // Clean up trailing commas and retry once
-                    String cleaned = cleanupLooseCommas(jsonCandidate);
-                    try {
-                        JsonNode node = objectMapper.readTree(cleaned);
-                        return objectMapper.convertValue(node, new TypeReference<Map<String, Object>>() {
-                        });
-                    } catch (Exception ignore) {
-                        // fall through to raw content
+            String systemPrompt = """
+                    You are an IB IA topic recommendation coach.
+                    Return valid JSON only with this structure:
+                    {
+                      "subject": string,
+                      "interest_topic": string,
+                      "ia_topics": [
+                        {
+                          "title": string,
+                          "description": string,
+                          "research_angle": string,
+                          "possible_method": string,
+                          "why_this_works": string
+                        }
+                      ]
                     }
-                }
-            }
+                    Rules:
+                    - Recommend exactly 3 strong topics.
+                    - Keep each topic specific, feasible, and IB-appropriate.
+                    - Do not output markdown.
+                    """;
 
-            // Fallback: return the raw content as a map
-            return Map.of("raw", content);
+            String userPrompt = """
+                    Subject: %s
+                    Interest Topic: %s
+                    Generate 3 IA topic recommendations.
+                    """.formatted(subject, interest);
 
+            JsonNode responseNode = openAiClientService.chatForJson(systemPrompt, userPrompt);
+            Map<String, Object> result = normalizeRecommendedTopics(responseNode, subject, interest);
+
+            recommendation.setTopics(objectMapper.writeValueAsString(result));
+            aiIARecommendationRepository.save(recommendation);
+            return result;
+        } catch (ServiceLogicException e) {
+            throw e;
         } catch (Exception e) {
-            Logger logger = LoggerFactory.getLogger(AiIAService.class);
-            logger.error("GPT 토픽 추천 API 오류", e);
-            throw new RuntimeException("토픽 추천 실패", e);
+            log.error("GPT 토픽 추천 API 오류", e);
+            throw new ServiceLogicException(ErrorCode.INTERNAL_SERVER_ERROR, "토픽 추천 실패");
         }
     }
 
     public Map<String, Object> createTopicGuide(String subject, String interestTopic, Map<String, Object> topic,
             User user) {
-        Logger log = LoggerFactory.getLogger(AiIAService.class);
         log.warn("[generateTopicGuide] subject={}, interestTopic={}", subject, interestTopic);
 
         try {
-            // 과목별 가이드 Assistant 매핑 (필요 시 실제 ID로 교체)
-            Map<String, String> assistantMap = Map.of(
-                    "Science", "asst_AOfc3JgUHv0TEAt1TW3BlrUj",
-                    "Math", "asst_CTKqoWcoSQVxvGwvBEnLU1JK",
-                    "Langauge A English", "asst_MYL7Zgg1btoI9oxfqJFrJNTr",
-                    "Psychology", "asst_vR4kvb3si89JhVbStxx8zUy4",
-                    "Business", "asst_a6X89XM9zzYupzETbTq5wHCG",
-                    "History", "asst_2qQTQt9UMdA20f59rg7RtLt4",
-                    "Geography", "asst_CedDfZnJ8xP0Z6LRPzTQryS9",
-                    "Economics", "asst_FWEEdenoYroG02QPw8vZ0JnT");
-            String assistantId = assistantMap.getOrDefault(subject, "asst_default_id").trim();
-            log.warn("[generateTopicGuide] Using guide assistant ID: {}", assistantId);
+            String selectedTopic = objectMapper.writeValueAsString(topic == null ? Map.of() : topic);
+            String systemPrompt = """
+                    You are an IB IA guide generator.
+                    Return valid JSON only as a single object.
+                    Build a practical guide for the selected IA topic.
+                    The object should include:
+                    - subject
+                    - interest_topic
+                    - selected_topic
+                    - refined_research_question
+                    - why_this_topic_works
+                    - research_scope (array)
+                    - method_outline (array of objects)
+                    - sources_or_data_to_collect (array)
+                    - draft_outline (array of objects)
+                    - risks_and_limitations (array)
+                    - next_actions (array)
+                    Do not output markdown.
+                    """;
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + openAiApiKey);
-            headers.set("OpenAI-Beta", "assistants=v2");
+            String userPrompt = """
+                    Subject: %s
+                    Interest Topic: %s
+                    Selected Topic JSON: %s
+                    Generate a concrete IA guide that the student can use immediately.
+                    """.formatted(subject, interestTopic, selectedTopic);
 
-            RestTemplate restTemplate = new RestTemplate();
-            ObjectMapper objectMapper = new ObjectMapper();
-
-            // 1) Thread 생성
-            ResponseEntity<JsonNode> threadResponse = restTemplate.exchange(
-                    "https://api.openai.com/v1/threads",
-                    HttpMethod.POST,
-                    new HttpEntity<>("{}", headers),
-                    JsonNode.class);
-            String threadId = threadResponse.getBody().path("id").asText();
-
-            // Build assistant input JSON per required schema:
-            // {
-            // "Subject": "...",
-            // "Interest Topic": "...",
-            // "ia_topics": [ "..." ]
-            // }
-            //
-            // Prefer a string title if available; otherwise fallback to a compact string of
-            // the topic map
-            String topicTitle = null;
-            if (topic != null) {
-                Object t = topic.get("title");
-                if (t != null) {
-                    topicTitle = String.valueOf(t);
-                }
-            }
-            if (topicTitle == null) {
-                // Fallback: try description, else toString()
-                Object d = (topic != null) ? topic.get("description") : null;
-                topicTitle = (d != null) ? String.valueOf(d) : String.valueOf(topic);
-            }
-
-            ObjectNode inputJson = objectMapper.createObjectNode();
-            inputJson.put("Subject", subject);
-            inputJson.put("Interest Topic", interestTopic);
-
-            // ia_topics should be an array of strings. We pass the selected one.
-            var iaTopicsArray = objectMapper.createArrayNode();
-            if (topicTitle != null) {
-                iaTopicsArray.add(topicTitle);
-            }
-            inputJson.set("ia_topics", iaTopicsArray);
-
-            String payloadJson = objectMapper.writeValueAsString(inputJson);
-            log.warn("[generateTopicGuide] Sending payload to assistant: {}", payloadJson);
-
-            ObjectNode messageBody = objectMapper.createObjectNode();
-            messageBody.put("role", "user");
-            ObjectNode contentText = objectMapper.createObjectNode();
-            contentText.put("type", "text");
-            contentText.put("text", payloadJson);
-            messageBody.set("content", objectMapper.createArrayNode().add(contentText));
-
-            restTemplate.exchange(
-                    "https://api.openai.com/v1/threads/" + threadId + "/messages",
-                    HttpMethod.POST,
-                    new HttpEntity<>(messageBody.toString(), headers),
-                    String.class);
-
-            // 3) Assistant Run 실행
-            ObjectNode runRequest = objectMapper.createObjectNode();
-            runRequest.put("assistant_id", assistantId);
-            ResponseEntity<JsonNode> runResponse = restTemplate.exchange(
-                    "https://api.openai.com/v1/threads/" + threadId + "/runs",
-                    HttpMethod.POST,
-                    new HttpEntity<>(runRequest.toString(), headers),
-                    JsonNode.class);
-            String runId = runResponse.getBody().path("id").asText();
-
-            // 4) 완료 대기
-            String status;
-            do {
-                Thread.sleep(1000);
-                ResponseEntity<JsonNode> statusResponse = restTemplate.exchange(
-                        "https://api.openai.com/v1/threads/" + threadId + "/runs/" + runId,
-                        HttpMethod.GET,
-                        new HttpEntity<>(headers),
-                        JsonNode.class);
-                status = statusResponse.getBody().path("status").asText();
-            } while (!"completed".equals(status));
-
-            // 5) 메시지 조회 & JSON 파싱
-            ResponseEntity<JsonNode> messagesResponse = restTemplate.exchange(
-                    "https://api.openai.com/v1/threads/" + threadId + "/messages",
-                    HttpMethod.GET,
-                    new HttpEntity<>(headers),
-                    JsonNode.class);
-            String content = messagesResponse.getBody()
-                    .path("data").get(0)
-                    .path("content").get(0)
-                    .path("text").path("value").asText();
-
-            // JSON 블록 추출 후 파싱 시도
-            String jsonCandidate = extractJsonBlock(content);
-            ObjectMapper om = objectMapper;
-            if (jsonCandidate != null) {
-                try {
-                    JsonNode node = om.readTree(jsonCandidate);
-                    return om.convertValue(node, new TypeReference<Map<String, Object>>() {
-                    });
-                } catch (Exception parseEx) {
-                    String cleaned = cleanupLooseCommas(jsonCandidate);
-                    try {
-                        JsonNode node = om.readTree(cleaned);
-                        return om.convertValue(node, new TypeReference<Map<String, Object>>() {
-                        });
-                    } catch (Exception ignore) {
-                        // 아래 fallback으로 이동
-                    }
-                }
-            }
-
-            // Fallback: 원문 전달
-            return Map.of("raw", content);
+            JsonNode responseNode = openAiClientService.chatForJson(systemPrompt, userPrompt);
+            Map<String, Object> result = toMutableMap(responseNode);
+            result.putIfAbsent("subject", subject);
+            result.putIfAbsent("interest_topic", interestTopic);
+            result.putIfAbsent("selected_topic", topic == null ? Map.of() : topic);
+            return result;
+        } catch (ServiceLogicException e) {
+            throw e;
         } catch (Exception e) {
-            Logger logger = LoggerFactory.getLogger(AiIAService.class);
-            logger.error("GPT 토픽 가이드 생성 오류", e);
-            throw new RuntimeException("토픽 가이드 생성 실패", e);
+            log.error("GPT 토픽 가이드 생성 오류", e);
+            throw new ServiceLogicException(ErrorCode.INTERNAL_SERVER_ERROR, "토픽 가이드 생성 실패");
         }
-    }
-
-    /**
-     * Extracts the first JSON object block from a text blob by taking the substring
-     * between the first '{' and the last '}'.
-     */
-    private String extractJsonBlock(String text) {
-        if (text == null)
-            return null;
-        int start = text.indexOf('{');
-        int end = text.lastIndexOf('}');
-        if (start >= 0 && end > start) {
-            return text.substring(start, end + 1);
-        }
-        return null;
-    }
-
-    /**
-     * Cleans common formatting artifacts such as trailing commas before '}' or ']'
-     * and duplicate commas that can appear in LLM outputs.
-     */
-    private String cleanupLooseCommas(String json) {
-        if (json == null)
-            return null;
-        // Remove a comma that is immediately before a closing brace/bracket
-        String cleaned = json.replaceAll(",\\s*([}\\]])", "$1");
-        // Collapse duplicate commas
-        cleaned = cleaned.replaceAll("\\s*,\\s*,", ",");
-        return cleaned;
     }
 
     public Map<String, Object> englishChat(
@@ -348,126 +136,193 @@ public class AiIAService {
             String responseMode,
             String prompt,
             User user) {
-        Logger log = LoggerFactory.getLogger(AiIAService.class);
         // 1) subject guard
-        log.warn("textType",textType);
+        log.warn("[englishChat] textType={}, responseMode={}", textType, responseMode);
         if (!"Langauge A English".equals(subject)) {
             throw new IllegalArgumentException("subject must be 'Langauge A English'");
         }
 
-        // 2) assistant 라우팅 (textType x responseMode 조합)
-        // 예시는 placeholder ID — 실제 발급된 Assistant ID로 교체
-        Map<String, String> assistantMap = Map.of(
-                "Language|generative", "asst_mPF4fipHJC9ZMp9SnROruory",
-                "Language|evaluate", "asst_w9Mmr2w7NGeL9xkNYwU1VUG0",
-                "Literature|generative", "asst_Ao5PhFjRQjTiPOFz0e1KNoFx",
-                "Literature|evaluate", "asst_NJfjMrqZq0WaYOnLWaqV6sXF");
-
-        String key = textType + "|" + responseMode;
-        log.warn("[generateTopicGuide] Sending payload to assistant: {}", key);
-
-        String assistantId = assistantMap.getOrDefault(key, "asst_default_id");
-
-        // 3) OpenAI Assistants v2 호출 (기존 generateAnswerFeedback 로직 패턴 재활용)
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + openAiApiKey);
-            headers.set("OpenAI-Beta", "assistants=v2");
-            RestTemplate restTemplate = new RestTemplate();
+            String systemPrompt = buildEnglishSystemPrompt(textType, responseMode);
+            String userPrompt = """
+                    Subject: %s
+                    Text Type: %s
+                    Response Mode: %s
+                    User Prompt: %s
+                    """.formatted(subject, textType, responseMode, prompt);
 
-            // thread 생성
-            ResponseEntity<JsonNode> threadResponse = restTemplate.exchange(
-                    "https://api.openai.com/v1/threads",
-                    HttpMethod.POST,
-                    new HttpEntity<>("{}", headers),
-                    JsonNode.class);
-            String threadId = threadResponse.getBody().path("id").asText();
-
-            // message 추가: 요구 포맷(백엔드에서 모든 라우팅 정보를 포함)
-            // 프론트에서 전달 받은 선택사항을 명시적으로 넣어줌
-            ObjectNode messageBody = objectMapper.createObjectNode();
-            messageBody.put("role", "user");
-
-            ObjectNode textContent = objectMapper.createObjectNode();
-            textContent.put("type", "text");
-
-            // 어시스턴트에 전달할 입력 형식은 English 전용 채팅 스펙에 맞춰 자유롭게 구성
-            // 필요하다면 JSON 형식 문자열로 명확히 전달
-            ObjectNode payload = objectMapper.createObjectNode();
-            payload.put("Subject", subject);
-            payload.put("TextType", textType);
-            payload.put("Mode", responseMode);
-            payload.put("Prompt", prompt);
-
-            textContent.put("text", payload.toString());
-            messageBody.set("content", objectMapper.createArrayNode().add(textContent));
-
-            restTemplate.exchange(
-                    "https://api.openai.com/v1/threads/" + threadId + "/messages",
-                    HttpMethod.POST,
-                    new HttpEntity<>(messageBody.toString(), headers),
-                    String.class);
-
-            // run
-            ObjectNode runRequest = objectMapper.createObjectNode();
-            runRequest.put("assistant_id", assistantId);
-            ResponseEntity<JsonNode> runResponse = restTemplate.exchange(
-                    "https://api.openai.com/v1/threads/" + threadId + "/runs",
-                    HttpMethod.POST,
-                    new HttpEntity<>(runRequest.toString(), headers),
-                    JsonNode.class);
-            String runId = runResponse.getBody().path("id").asText();
-
-            // 완료 대기 (polling)
-            String status;
-            do {
-                Thread.sleep(1000);
-                ResponseEntity<JsonNode> statusResponse = restTemplate.exchange(
-                        "https://api.openai.com/v1/threads/" + threadId + "/runs/" + runId,
-                        HttpMethod.GET,
-                        new HttpEntity<>(headers),
-                        JsonNode.class);
-                status = statusResponse.getBody().path("status").asText();
-                if ("failed".equals(status)) {
-                    throw new RuntimeException("assistant run failed");
-                }
-            } while (!"completed".equals(status));
-
-            // 메시지 조회
-            ResponseEntity<JsonNode> messagesResponse = restTemplate.exchange(
-                    "https://api.openai.com/v1/threads/" + threadId + "/messages",
-                    HttpMethod.GET,
-                    new HttpEntity<>(headers),
-                    JsonNode.class);
-
-            // 최신 메시지 텍스트 추출
-            JsonNode data = messagesResponse.getBody().path("data");
-            String value = data.get(0).path("content").get(0).path("text").path("value").asText();
-
-            // value 가 JSON 문자열이면 파싱, 아니면 그대로 감싸 반환
-            Map<String, Object> resultMap = new HashMap<>();
-            try {
-                JsonNode parsed = objectMapper.readTree(value);
-                resultMap = objectMapper.convertValue(parsed, new TypeReference<Map<String, Object>>() {
-                });
-            } catch (Exception ignore) {
-                resultMap.put("text", value);
-            }
-
-            // 메타 정보 추가(선택)
-            resultMap.put("meta", Map.of(
-                    "subject", subject,
-                    "textType", textType,
-                    "mode", responseMode));
-
-            return resultMap;
-
+            JsonNode responseNode = openAiClientService.chatForJson(systemPrompt, userPrompt);
+            return normalizeEnglishResponse(responseNode, subject, textType, responseMode, prompt);
+        } catch (ServiceLogicException e) {
+            throw e;
         } catch (Exception e) {
-            Logger logger = LoggerFactory.getLogger(AiIAService.class);
-            logger.error("English chat assistant 호출 중 오류", e);
-            throw new RuntimeException("English chat failed", e);
+            log.error("English chat assistant 호출 중 오류", e);
+            throw new ServiceLogicException(ErrorCode.INTERNAL_SERVER_ERROR, "English chat failed");
         }
     }
 
+    private Map<String, Object> normalizeRecommendedTopics(JsonNode responseNode, String subject, String interest) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("subject", subject);
+        result.put("interest_topic", interest);
+
+        JsonNode topicsNode = responseNode.path("ia_topics");
+        if (!topicsNode.isArray() && responseNode.isArray()) {
+            topicsNode = responseNode;
+        }
+
+        List<Map<String, Object>> topics = new ArrayList<>();
+        if (topicsNode.isArray()) {
+            for (JsonNode topicNode : topicsNode) {
+                topics.add(normalizeTopic(topicNode));
+            }
+        }
+
+        result.put("ia_topics", topics);
+        return result;
+    }
+
+    private Map<String, Object> normalizeTopic(JsonNode topicNode) {
+        Map<String, Object> topic = new LinkedHashMap<>();
+
+        if (topicNode.isTextual()) {
+            topic.put("title", topicNode.asText());
+            topic.put("description", "");
+            return topic;
+        }
+
+        topic.put("title", firstNonBlank(
+                topicNode.path("title").asText(null),
+                topicNode.path("question").asText(null),
+                "추천 주제"));
+        topic.put("description", firstNonBlank(topicNode.path("description").asText(null), ""));
+
+        putIfPresent(topic, "research_angle", topicNode.path("research_angle").asText(null));
+        putIfPresent(topic, "possible_method", topicNode.path("possible_method").asText(null));
+        putIfPresent(topic, "why_this_works", topicNode.path("why_this_works").asText(null));
+        return topic;
+    }
+
+    private Map<String, Object> normalizeEnglishResponse(
+            JsonNode responseNode,
+            String subject,
+            String textType,
+            String responseMode,
+            String prompt) {
+        Map<String, Object> result = toMutableMap(responseNode);
+
+        if ("generative".equals(responseMode)) {
+            result.put("response_mode", "generative");
+            result.putIfAbsent("interest_topic", prompt);
+            ensureList(result, "building_steps");
+            ensureList(result, "core_concepts_with_questions");
+            ensureList(result, "suggested_topics");
+        } else {
+            result.put("response_mode", "evaluative_feedback");
+            result.putIfAbsent("student_question", prompt);
+            ensureList(result, "building_steps");
+            ensureList(result, "identified_limitations");
+            ensureList(result, "suggested_revisions");
+            ensureList(result, "core_concepts_with_questions");
+        }
+
+        result.put("meta", Map.of(
+                "subject", subject,
+                "textType", textType,
+                "mode", responseMode));
+        return result;
+    }
+
+    private String buildEnglishSystemPrompt(String textType, String responseMode) {
+        String trackInstructions = "Literature".equals(textType)
+                ? "Focus on literary works, authorial choices, narrative voice, form, and interpretation."
+                : "Focus on language use, rhetorical choices, audience, context, and non-literary analysis.";
+
+        if ("generative".equals(responseMode)) {
+            return """
+                    You are an IB English %s coach.
+                    %s
+                    Return valid JSON only with this exact structure:
+                    {
+                      "response_mode": "generative",
+                      "interest_topic": string,
+                      "intro_paragraph": string,
+                      "building_steps": [
+                        { "step_number": integer, "title": string, "instruction": string, "example": string }
+                      ],
+                      "core_concepts_with_questions": [
+                        { "concept": string, "guiding_questions": [string] }
+                      ],
+                      "suggested_topics": [
+                        { "question": string, "ib_core_concept": string, "description": string, "essay_guideline": string }
+                      ]
+                    }
+                    Rules:
+                    - Provide 3 to 5 building_steps.
+                    - Provide 3 suggested_topics.
+                    - Keep suggestions specific and IB-appropriate.
+                    - Do not output markdown.
+                    """.formatted(textType, trackInstructions);
+        }
+
+        return """
+                You are an IB English %s evaluator.
+                %s
+                Return valid JSON only with this exact structure:
+                {
+                  "response_mode": "evaluative_feedback",
+                  "student_question": string,
+                  "evaluation_intro": string,
+                  "building_steps": [
+                    { "step_number": integer, "title": string, "instruction": string, "example": string }
+                  ],
+                  "identified_limitations": [
+                    { "issue": string, "explanation": string }
+                  ],
+                  "suggested_revisions": [
+                    { "question": string, "ib_core_concept": string, "description": string, "essay_guideline": string }
+                  ],
+                  "core_concepts_with_questions": [
+                    { "concept": string, "guiding_questions": [string] }
+                  ]
+                }
+                Rules:
+                - Evaluate the student's prompt critically but constructively.
+                - Provide 2 to 4 identified_limitations.
+                - Provide 2 to 3 suggested_revisions.
+                - Do not output markdown.
+                """.formatted(textType, trackInstructions);
+    }
+
+    private Map<String, Object> toMutableMap(JsonNode node) {
+        if (!node.isObject()) {
+            Map<String, Object> fallback = new HashMap<>();
+            fallback.put("raw", node.toString());
+            return fallback;
+        }
+
+        return objectMapper.convertValue(node, new TypeReference<LinkedHashMap<String, Object>>() {
+        });
+    }
+
+    private void ensureList(Map<String, Object> map, String key) {
+        if (!(map.get(key) instanceof List<?>)) {
+            map.put(key, List.of());
+        }
+    }
+
+    private void putIfPresent(Map<String, Object> map, String key, String value) {
+        if (value != null && !value.isBlank()) {
+            map.put(key, value);
+        }
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
+    }
 }
