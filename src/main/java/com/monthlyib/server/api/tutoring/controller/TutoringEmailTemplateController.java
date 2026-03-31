@@ -5,6 +5,7 @@ import com.monthlyib.server.api.tutoring.dto.TutoringEmailTemplatePatchDto;
 import com.monthlyib.server.domain.tutoring.service.TutoringEmailTemplateService;
 import com.monthlyib.server.dto.ResponseDto;
 import com.monthlyib.server.dto.Result;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,14 +32,14 @@ public class TutoringEmailTemplateController {
     }
 
     @PostMapping
-    public ResponseEntity<ResponseDto<?>> create(@RequestBody TutoringEmailTemplatePatchDto dto) {
+    public ResponseEntity<ResponseDto<?>> create(@Valid @RequestBody TutoringEmailTemplatePatchDto dto) {
         TutoringEmailTemplateDto created = service.create(dto);
         return ResponseEntity.ok(ResponseDto.of(created, Result.ok()));
     }
 
     @PatchMapping("/{id}")
     public ResponseEntity<ResponseDto<?>> update(@PathVariable Long id,
-                                                  @RequestBody TutoringEmailTemplatePatchDto dto) {
+                                                  @Valid @RequestBody TutoringEmailTemplatePatchDto dto) {
         TutoringEmailTemplateDto updated = service.update(id, dto);
         return ResponseEntity.ok(ResponseDto.of(updated, Result.ok()));
     }
