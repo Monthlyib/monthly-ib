@@ -57,6 +57,7 @@ public class UserService {
     private final FileService fileService;
 
     public Page<UserResponseDto> findAll(int page, User user) {
+        verifyAdmin(user);
 
         return userRepository.findAll(PageRequest.of(page, 15, Sort.by("createAt").descending()))
                 .map( u -> {
@@ -119,12 +120,18 @@ public class UserService {
         }
     }
 
-    public UserResponseDto findUserById(Long userId) {
+    public UserResponseDto findUserById(Long userId, User user) {
+        verifyAdminOrSelf(user, userId);
 
         return UserResponseDto.of(findUserEntity(userId), firstUserImage(userId));
     }
 
-    public UserResponseDto updateUser(Long userId, UserPatchRequestDto dto) {
+    public UserResponseDto updateUser(Long userId, UserPatchRequestDto dto, User user) {
+        verifyAdminOrSelf(user, userId);
+        if (!user.getAuthority().equals(Authority.ADMIN)) {
+            dto.setAuthority(null);
+            dto.setUserStatus(null);
+        }
         User findUser = findUserEntity(userId);
         String password = dto.getPassword();
         if (password != null) {
@@ -187,11 +194,10 @@ public class UserService {
 
 
     public void deleteUser(Long userId, User user) {
-        if (user.getAuthority().equals(Authority.ADMIN)) {
-            User findUser = findUserEntity(userId);
-            findUser.setUserStatus(UserStatus.INACTIVE);
-            userRepository.save(findUser);
-        }
+        verifyAdmin(user);
+        User findUser = findUserEntity(userId);
+        findUser.setUserStatus(UserStatus.INACTIVE);
+        userRepository.save(findUser);
 
     }
 
@@ -220,6 +226,18 @@ public class UserService {
             } else {
                 throw e;
             }
+        }
+    }
+
+    private void verifyAdmin(User user) {
+        if (!user.getAuthority().equals(Authority.ADMIN)) {
+            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+        }
+    }
+
+    private void verifyAdminOrSelf(User user, Long userId) {
+        if (!user.getAuthority().equals(Authority.ADMIN) && !user.getUserId().equals(userId)) {
+            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
         }
     }
 

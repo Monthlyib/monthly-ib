@@ -40,6 +40,13 @@ public class SubscribeApiController implements SubscribeApiControllerIfs{
     }
 
     @Override
+    @GetMapping("/api/subscribe/active/{userId}")
+    public ResponseEntity<ResponseDto<?>> getActiveSubscribeUser(Long userId, User user) {
+        SubscribeUserResponseDto response = subscribeService.findActiveSubscribeUser(userId, user);
+        return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
+    }
+
+    @Override
     @PostMapping("/api/subscribe")
     public ResponseEntity<ResponseDto<?>> postSubscribe(SubscribePostDto requestDto, User user) {
         SubscribeResponseDto response = subscribeService.createSubscribe(requestDto, user);
@@ -62,15 +69,15 @@ public class SubscribeApiController implements SubscribeApiControllerIfs{
 
     @Override
     @PatchMapping("/api/subscribe/user/{subscribeUserId}")
-    public ResponseEntity<ResponseDto<?>> patchSubscribeUser(Long subscribeUserId, SubscribeUserPatchDto requestDto, User user) {
-        SubscribeUserResponseDto response = subscribeService.updateSubscribeUser(subscribeUserId, requestDto, user);
+    public ResponseEntity<ResponseDto<?>> patchSubscribeUser(Long subscribeUserId, SubscribeUserPatchDto requestDto, Long newsubscribeId, User user) {
+        SubscribeUserResponseDto response = subscribeService.updateSubscribeUser(subscribeUserId, newsubscribeId, requestDto, user);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 
     @Override
     @DeleteMapping("/api/subscribe/{subscribeId}")
     public ResponseEntity<ResponseDto<?>> deleteSubscribe(Long subscribeId, User user) {
-        subscribeService.deleteSubscribe(subscribeId);
+        subscribeService.deleteSubscribe(subscribeId, user);
         return ResponseEntity.ok().build();
     }
 }

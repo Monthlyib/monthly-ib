@@ -63,7 +63,8 @@ public interface UserApiControllerIfs {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
     })
     ResponseEntity<ResponseDto<?>> getUser(
-            @PathVariable @Parameter(description = "회원의 식별자", required = true) Long userId
+            @PathVariable @Parameter(description = "회원의 식별자", required = true) Long userId,
+            @UserSession @Parameter(hidden = true) User user
     );
 
     @Operation(summary = "회원 정보 수정(개인, 관리자)", description = "회원 정보 수정 요청")

@@ -109,6 +109,21 @@ public class SubscribeUser extends Auditable {
         this.videoLessonsCount = Optional.ofNullable(dto.getVideoLessonsCount()).orElse(this.videoLessonsCount);
         this.videoLessonsIdList = Optional.ofNullable(dto.getVideoLessonsIdList()).orElse(this.videoLessonsIdList);
         this.subscribeStatus = Optional.ofNullable(dto.getSubscribeStatus()).orElse(this.subscribeStatus);
+        this.expirationDate = LocalDate.now().plusMonths(this.subscribeMonthPeriod);
+        return this;
+    }
+
+    public SubscribeUser applySubscribe(Subscribe subscribe) {
+        this.subscribeId = subscribe.getSubscribeId();
+        this.title = subscribe.getTitle();
+        this.content = subscribe.getContent();
+        this.price = subscribe.getPrice();
+        this.questionCount = subscribe.getQuestionCount();
+        this.tutoringCount = subscribe.getTutoringCount();
+        this.subscribeMonthPeriod = subscribe.getSubscribeMonthPeriod();
+        this.videoLessonsCount = subscribe.getVideoLessonsCount();
+        this.videoLessonsIdList = new ArrayList<>(subscribe.getVideoLessonsIdList());
+        this.expirationDate = LocalDate.now().plusMonths(subscribe.getSubscribeMonthPeriod());
         return this;
     }
 

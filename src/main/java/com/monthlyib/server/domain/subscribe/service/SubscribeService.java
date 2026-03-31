@@ -5,6 +5,7 @@ import com.monthlyib.server.api.subscribe.dto.SubscribePostDto;
 import com.monthlyib.server.api.subscribe.dto.SubscribeResponseDto;
 import com.monthlyib.server.api.subscribe.dto.SubscribeUserPatchDto;
 import com.monthlyib.server.api.subscribe.dto.SubscribeUserResponseDto;
+import com.monthlyib.server.constant.Authority;
 import com.monthlyib.server.constant.ErrorCode;
 import com.monthlyib.server.constant.SubscribeStatus;
 import com.monthlyib.server.domain.subscribe.entity.Subscribe;
@@ -39,6 +40,7 @@ public class SubscribeService {
     }
 
     public SubscribeUserResponseDto createSubscribeUser(Long subscribeId, User user, Long userId) {
+        verifyAdmin(user);
         Subscribe subscribe = verifySubscribe(subscribeId);
         User findUser = userService.findUserEntity(userId);
         SubscribeUser newSubUser = SubscribeUser.create(subscribe, findUser);
@@ -46,32 +48,48 @@ public class SubscribeService {
         return SubscribeUserResponseDto.of(saveSubUser);
     }
 
-    public SubscribeUserResponseDto updateSubscribeUser(Long subscribeUserId, SubscribeUserPatchDto dto, User user) {
+    public SubscribeUserResponseDto updateSubscribeUser(Long subscribeUserId, Long newSubscribeId, SubscribeUserPatchDto dto, User user) {
+        verifyAdmin(user);
         SubscribeUser findSubUser = verifySubUser(subscribeUserId);
+        if (newSubscribeId != null && !newSubscribeId.equals(findSubUser.getSubscribeId())) {
+            Subscribe nextSubscribe = verifySubscribe(newSubscribeId);
+            findSubUser.applySubscribe(nextSubscribe);
+        }
         SubscribeUser update = findSubUser.update(dto);
         SubscribeUser saveSubUser = subscribeRepository.saveSubscribeUser(update);
         return SubscribeUserResponseDto.of(saveSubUser);
     }
 
     public Page<SubscribeUserResponseDto> findAllSubscribeUser(Long userId, int page, User user) {
+        verifyAdminOrSelf(user, userId);
         return subscribeRepository.findAllSubscribeByUserId(userId, PageRequest.of(page, 10, Sort.by("createAt").descending()))
                 .map(SubscribeUserResponseDto::of);
     }
 
+    public SubscribeUserResponseDto findActiveSubscribeUser(Long userId, User user) {
+        verifyAdminOrSelf(user, userId);
+        return subscribeRepository.findSubscribeUserByUserIdAndStatus(userId, SubscribeStatus.ACTIVE)
+                .map(SubscribeUserResponseDto::of)
+                .orElse(null);
+    }
+
 
     public SubscribeResponseDto createSubscribe(SubscribePostDto dto, User user) {
+        verifyAdmin(user);
         Subscribe newSub = Subscribe.create(dto);
         return SubscribeResponseDto.of(subscribeRepository.save(newSub));
     }
 
     public SubscribeResponseDto updateSubscribe(Long subscribeId, SubscribePostDto dto, User user) {
+        verifyAdmin(user);
         Subscribe find = verifySubscribe(subscribeId);
         Subscribe updateSub = find.update(dto);
         return SubscribeResponseDto.of(subscribeRepository.save(updateSub));
 
     }
 
-    public void deleteSubscribe(Long subscribeId) {
+    public void deleteSubscribe(Long subscribeId, User user) {
+        verifyAdmin(user);
         subscribeRepository.deleteById(subscribeId);
     }
 
@@ -88,6 +106,18 @@ public class SubscribeService {
     private SubscribeUser verifySubUser(Long subscribeUserId) {
         return subscribeRepository.findSubUser(subscribeUserId)
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
+    }
+
+    private void verifyAdmin(User user) {
+        if (!user.getAuthority().equals(Authority.ADMIN)) {
+            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+        }
+    }
+
+    private void verifyAdminOrSelf(User user, Long userId) {
+        if (!user.getAuthority().equals(Authority.ADMIN) && !user.getUserId().equals(userId)) {
+            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+        }
     }
 
 
