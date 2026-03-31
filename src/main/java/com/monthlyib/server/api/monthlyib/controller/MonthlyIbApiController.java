@@ -36,7 +36,7 @@ public class MonthlyIbApiController implements MonthlyIbApiControllerIfs{
     }
 
     @Override
-    @GetMapping("/api/monthly-ib/{monthlyIbId}")
+    @GetMapping({"/api/monthly-ib/{monthlyIbId}", "/open-api/monthly-ib/{monthlyIbId}"})
     public ResponseEntity<ResponseDto<?>> getMonthlyIb(
             Long monthlyIbId
     ) {
