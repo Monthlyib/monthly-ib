@@ -1,6 +1,8 @@
 package com.monthlyib.server.event;
 
 import com.monthlyib.server.auth.service.VerifyNumService;
+import com.monthlyib.server.domain.tutoring.entity.TutoringEmailTemplate;
+import com.monthlyib.server.domain.tutoring.service.TutoringEmailTemplateService;
 import com.monthlyib.server.domain.user.service.UserService;
 import com.monthlyib.server.mail.service.EmailSender;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,8 @@ public class UserMailEventListener {
     private final EmailSender emailSender;
 
     private final VerifyNumService verifyNumService;
+
+    private final TutoringEmailTemplateService tutoringEmailTemplateService;
 
     @Async
     @EventListener
@@ -75,14 +79,25 @@ public class UserMailEventListener {
     public void tutoringConfirm(UserTutoringConfirmEvent event) throws Exception {
         try {
             String[] to = new String[]{event.getEmail()};
-            String message = event.getEmail() + "님, 신청하신 튜텨링이 승인 되었습니다.";
-            log.info(to[0]);
-            log.info(message);
-            emailSender.sendEmail(to, registrationSubject, message, registrationTemplateName);
+            TutoringEmailTemplate template = tutoringEmailTemplateService.getActiveEntity();
+            String subject = template.getSubject();
+            String message = buildMessage(template.getBodyTemplate(), event);
+            log.info("Sending tutoring confirm email to: {}", to[0]);
+            emailSender.sendEmail(to, subject, message, registrationTemplateName);
         } catch (MailSendException e) {
             e.printStackTrace();
             log.error("MailSendException: Rollback for User tutoringConfirm:");
         }
+    }
+
+    private String buildMessage(String bodyTemplate, UserTutoringConfirmEvent event) {
+        String msg = bodyTemplate;
+        msg = msg.replace("{nickName}", event.getNickName() != null ? event.getNickName() : event.getEmail());
+        if (event.getDate() != null) {
+            msg = msg.replace("{date}", event.getDate().toString());
+        }
+        msg = msg.replace("{time}", String.format("%02d:%02d", event.getHour(), event.getMinute()));
+        return msg;
     }
 
     @Async

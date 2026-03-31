@@ -106,7 +106,7 @@ public class TutoringService {
         if (tutoringStatus.equals(TutoringStatus.CONFIRM)) {
             User findUser = userRepository.findById(findTutoring.getRequestUserId())
                     .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
-            publisher.publishEvent(new UserTutoringConfirmEvent(this, findUser.getEmail(), findUser.getUsername()));
+            publisher.publishEvent(new UserTutoringConfirmEvent(this, findUser.getEmail(), findTutoring.getRequestUserNickName(), findTutoring.getDate(), findTutoring.getHour(), findTutoring.getMinute()));
         }
         Tutoring save = tutoringRepository.save(findTutoring);
         return TutoringResponseDto.of(save);
