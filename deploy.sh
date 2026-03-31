@@ -18,8 +18,9 @@ chmod 700 gradlew
 
 # systemd 서비스 파일 생성 (없을 경우)
 SERVICE_FILE=/etc/systemd/system/$SERVICE_NAME.service
-if [ ! -f "$SERVICE_FILE" ]; then
-  sudo tee $SERVICE_FILE > /dev/null <<EOF
+[ -f "$SERVICE_FILE" ] && sudo rm -f "$SERVICE_FILE"
+
+sudo tee $SERVICE_FILE > /dev/null <<EOF
 [Unit]
 Description=MonthlyIB Spring Boot Application
 After=network.target
@@ -27,7 +28,7 @@ After=network.target
 [Service]
 User=ubuntu
 WorkingDirectory=$BUILD
-ExecStart=/usr/bin/java -jar $JAR_PATH --spring.profiles.active=dev
+ExecStart=/usr/bin/java -jar $JAR_PATH
 SuccessExitStatus=143
 Restart=always
 RestartSec=10
@@ -38,9 +39,8 @@ SyslogIdentifier=$SERVICE_NAME
 [Install]
 WantedBy=multi-user.target
 EOF
-  sudo systemctl daemon-reload
-  sudo systemctl enable $SERVICE_NAME
-fi
+sudo systemctl daemon-reload
+sudo systemctl enable $SERVICE_NAME
 
 # 서비스 재시작
 sudo systemctl restart $SERVICE_NAME
