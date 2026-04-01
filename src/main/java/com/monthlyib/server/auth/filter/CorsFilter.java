@@ -25,14 +25,15 @@ public class CorsFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         List<String> list = List.of(
                 "http://localhost:3000",
-                "https://monthly-ib.com"
+                "https://monthly-ib.com",
+                "https://www.monthly-ib.com"
         );
         String originUrl = request.getHeader("Origin");
         String origin = list.stream().filter(
                 o -> o.equals(originUrl)
         ).findFirst().orElse(originUrl);
         response.setHeader("Access-Control-Allow-Origin", origin);
-        response.setHeader("Access-Control-Allow-Methods","GET, POST, DELETE, PATCH, OPTIONS");
+        response.setHeader("Access-Control-Allow-Methods","GET, POST, PUT, DELETE, PATCH, OPTIONS");
         response.setHeader("Access-Control-Max-Age", "3600");
         response.setHeader("Access-Control-Expose-Headers", "Authorization, userId, userStatus, Content-Disposition");
         response.setHeader("Access-Control-Allow-Credentials", "true");
