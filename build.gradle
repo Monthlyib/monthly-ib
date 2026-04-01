@@ -68,6 +68,8 @@ dependencies {
 	// https://mvnrepository.com/artifact/com.amazonaws/aws-java-sdk
 	implementation 'com.amazonaws:aws-java-sdk:1.12.714'
 
+	implementation 'org.jsoup:jsoup:1.18.1'
+
 }
 
 tasks.named('test') {
