@@ -20,8 +20,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -209,13 +214,94 @@ public class VideoLessonsService {
     }
 
     public VideoLessonsResponseDto createVideoLessonsUser(User user, Long videoLessonsId) {
-        VideoLessonsUser newVideoLessonsUser = VideoLessonsUser.builder()
-                .userId(user.getUserId())
-                .videoLessonsId(videoLessonsId)
-                .status(VideoLessonsUserStatus.PROGRESS)
-                .build();
-        VideoLessonsUser saveVideoLessonsUser = videoLessonsRepository.save(newVideoLessonsUser);
+        verifyVideoLessons(videoLessonsId);
+        videoLessonsRepository.findVideoLessonsUser(videoLessonsId, user.getUserId())
+                .orElseGet(() -> videoLessonsRepository.save(
+                        VideoLessonsUser.builder()
+                                .userId(user.getUserId())
+                                .videoLessonsId(videoLessonsId)
+                                .status(VideoLessonsUserStatus.PROGRESS)
+                                .build()
+                ));
         return findVideoLessons(videoLessonsId, 0);
+    }
+
+    public VideoLessonsProgressResponseDto findVideoLessonsProgress(User user, Long videoLessonsId) {
+        verifyVideoLessons(videoLessonsId);
+        verifyVideoLessonsUser(videoLessonsId, user.getUserId());
+        return buildProgressResponse(user.getUserId(), videoLessonsId);
+    }
+
+    public VideoLessonsProgressResponseDto upsertVideoLessonsProgress(
+            User user,
+            Long videoLessonsId,
+            Long subChapterId,
+            VideoLessonsProgressUpsertDto dto
+    ) {
+        verifyVideoLessons(videoLessonsId);
+        verifyVideoLessonsUser(videoLessonsId, user.getUserId());
+        VideoLessonsSubChapter subChapter = verifyProgressTarget(videoLessonsId, subChapterId);
+
+        long durationSeconds = normalizeToPositiveNumber(dto.getDurationSeconds());
+        long lastPositionSeconds = normalizeToPositiveNumber(dto.getLastPositionSeconds());
+
+        if (durationSeconds > 0 && lastPositionSeconds > durationSeconds) {
+            lastPositionSeconds = durationSeconds;
+        }
+
+        double progressPercent = calculateLessonProgressPercent(lastPositionSeconds, durationSeconds);
+        boolean completed = progressPercent >= 90D;
+        long normalizedDurationSeconds = durationSeconds;
+        long normalizedLastPositionSeconds = lastPositionSeconds;
+        double normalizedProgressPercent = progressPercent;
+        boolean normalizedCompleted = completed;
+
+        VideoLessonsProgress progress = videoLessonsRepository
+                .findVideoLessonsProgress(user.getUserId(), videoLessonsId, subChapterId)
+                .orElseGet(() -> VideoLessonsProgress.create(
+                        user.getUserId(),
+                        videoLessonsId,
+                        subChapter.getMainChapterId(),
+                        subChapterId,
+                        normalizedLastPositionSeconds,
+                        normalizedDurationSeconds,
+                        normalizedProgressPercent,
+                        normalizedCompleted
+                ));
+
+        progress.updateProgress(
+                subChapter.getMainChapterId(),
+                normalizedLastPositionSeconds,
+                normalizedDurationSeconds,
+                normalizedProgressPercent,
+                normalizedCompleted
+        );
+        videoLessonsRepository.save(progress);
+
+        return buildProgressResponse(user.getUserId(), videoLessonsId);
+    }
+
+    public VideoLessonsProgressResponseDto restartVideoLessonsProgress(User user, Long videoLessonsId, Long subChapterId) {
+        verifyVideoLessons(videoLessonsId);
+        verifyVideoLessonsUser(videoLessonsId, user.getUserId());
+        VideoLessonsSubChapter subChapter = verifyProgressTarget(videoLessonsId, subChapterId);
+
+        VideoLessonsProgress progress = videoLessonsRepository
+                .findVideoLessonsProgress(user.getUserId(), videoLessonsId, subChapterId)
+                .orElseGet(() -> VideoLessonsProgress.create(
+                        user.getUserId(),
+                        videoLessonsId,
+                        subChapter.getMainChapterId(),
+                        subChapterId,
+                        0L,
+                        0L,
+                        0D,
+                        false
+                ));
+        progress.restart();
+        videoLessonsRepository.save(progress);
+
+        return buildProgressResponse(user.getUserId(), videoLessonsId);
     }
 
 
@@ -246,6 +332,87 @@ public class VideoLessonsService {
     private VideoLessonsSubChapter verifyVideoLessonsSubChapter(Long videoLessonsSubChapterId) {
         return videoLessonsRepository.findVideoSubChapter(videoLessonsSubChapterId)
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_VIDEO_LESSONS_SUB_CHAPTER));
+    }
+
+    private VideoLessonsUser verifyVideoLessonsUser(Long videoLessonsId, Long userId) {
+        return videoLessonsRepository.findVideoLessonsUser(videoLessonsId, userId)
+                .orElseThrow(() -> new ServiceLogicException(ErrorCode.ACCESS_DENIED_REQUEST_API));
+    }
+
+    private VideoLessonsSubChapter verifyProgressTarget(Long videoLessonsId, Long subChapterId) {
+        VideoLessonsSubChapter subChapter = verifyVideoLessonsSubChapter(subChapterId);
+        if (!videoLessonsId.equals(subChapter.getVideoLessonsId())) {
+            throw new ServiceLogicException(ErrorCode.NOT_FOUND_VIDEO_LESSONS_SUB_CHAPTER);
+        }
+        return subChapter;
+    }
+
+    private VideoLessonsProgressResponseDto buildProgressResponse(Long userId, Long videoLessonsId) {
+        List<VideoLessonsSubChapter> subChapters = videoLessonsRepository.findVideoSubChaptersByVideoLessonsId(videoLessonsId)
+                .stream()
+                .sorted(Comparator
+                        .comparingLong(VideoLessonsSubChapter::getMainChapterId)
+                        .thenComparingInt(VideoLessonsSubChapter::getChapterIndex))
+                .toList();
+
+        List<VideoLessonsProgress> progressList = videoLessonsRepository.findAllVideoLessonsProgress(userId, videoLessonsId);
+        Map<Long, VideoLessonsProgress> progressMap = progressList.stream().collect(
+                Collectors.toMap(VideoLessonsProgress::getSubChapterId, Function.identity())
+        );
+
+        long totalLessonCount = subChapters.size();
+        long completedLessonCount = progressList.stream().filter(VideoLessonsProgress::isCompleted).count();
+        double totalProgress = subChapters.stream()
+                .map(VideoLessonsSubChapter::getVideoLessonsSubChapterId)
+                .map(progressMap::get)
+                .filter(Objects::nonNull)
+                .mapToDouble(VideoLessonsProgress::getProgressPercent)
+                .sum();
+        double progressPercent = totalLessonCount == 0
+                ? 0D
+                : roundToOneDecimal(totalProgress / totalLessonCount);
+
+        VideoLessonsProgress resumeProgress = progressList.stream()
+                .max(Comparator.comparing(VideoLessonsProgress::getLastWatchedAt))
+                .orElse(null);
+
+        List<VideoLessonsLessonProgressDto> lessons = subChapters.stream()
+                .map(subChapter -> progressMap.get(subChapter.getVideoLessonsSubChapterId()))
+                .filter(Objects::nonNull)
+                .map(VideoLessonsLessonProgressDto::of)
+                .toList();
+
+        return VideoLessonsProgressResponseDto.builder()
+                .videoLessonsId(videoLessonsId)
+                .progressPercent(progressPercent)
+                .completedLessonCount(completedLessonCount)
+                .totalLessonCount(totalLessonCount)
+                .resumeTarget(resumeProgress == null ? null : VideoLessonsProgressSummaryDto.builder()
+                        .mainChapterId(resumeProgress.getMainChapterId())
+                        .subChapterId(resumeProgress.getSubChapterId())
+                        .positionSeconds(resumeProgress.getLastPositionSeconds())
+                        .build())
+                .lessons(lessons)
+                .build();
+    }
+
+    private long normalizeToPositiveNumber(Long value) {
+        if (value == null || value < 0) {
+            return 0L;
+        }
+        return value;
+    }
+
+    private double calculateLessonProgressPercent(long lastPositionSeconds, long durationSeconds) {
+        if (durationSeconds <= 0L) {
+            return 0D;
+        }
+        double rawPercent = ((double) lastPositionSeconds / durationSeconds) * 100D;
+        return roundToOneDecimal(Math.min(rawPercent, 100D));
+    }
+
+    private double roundToOneDecimal(double value) {
+        return Math.round(value * 10D) / 10D;
     }
 
 

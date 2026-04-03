@@ -25,6 +25,8 @@ public interface VideoLessonsRepository {
 
     List<VideoLessonsSubChapter> findVideoSubChaptersByMainChapterId(Long videoLessonsMainChapterId);
 
+    List<VideoLessonsSubChapter> findVideoSubChaptersByVideoLessonsId(Long videoLessonsId);
+
     Optional<VideoLessonsSubChapter> findVideoSubChapter(Long videoLessonsSubChapterId);
 
     Page<VideoLessonsReply> findVideoReply(Long videoLessonsId, Pageable pageable);
@@ -45,9 +47,15 @@ public interface VideoLessonsRepository {
 
     VideoLessonsUser save(VideoLessonsUser videoLessonsUser);
 
+    VideoLessonsProgress save(VideoLessonsProgress videoLessonsProgress);
+
     Optional<VideoLessonsUser> findVideoLessonsUser(Long videoLessonsId, Long userId);
 
+    Optional<VideoLessonsProgress> findVideoLessonsProgress(Long userId, Long videoLessonsId, Long subChapterId);
+
     Page<VideoLessonsUser> findAllVideoLessonsUser(Long userId, Pageable pageable);
+
+    List<VideoLessonsProgress> findAllVideoLessonsProgress(Long userId, Long videoLessonsId);
 
     List<VideoThumbnail> findVideoThumbnailByVideoLessonsId(Long videoLessonsId);
 

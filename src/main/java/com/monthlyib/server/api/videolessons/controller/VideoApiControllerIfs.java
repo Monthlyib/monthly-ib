@@ -25,6 +25,7 @@ public interface VideoApiControllerIfs {
 
     class VideoLessonsListResponse extends PageResponseDto<List<VideoLessonsSimpleResponseDto>> { }
     class VideoLessonsUserListResponse extends PageResponseDto<List<VideoLessonsUserSimpleResponseDto>> { }
+    class VideoLessonsProgressResponse extends ResponseDto<VideoLessonsProgressResponseDto> { }
 
     @Operation(summary = "전체 영상강의 Data 요청(개인, 관리자)", description = "전체 영상강의 Data 리스트 요청")
     @ApiResponses({
@@ -107,6 +108,63 @@ public interface VideoApiControllerIfs {
     })
     ResponseEntity<ResponseDto<?>> postVideoLessonsForUser(
             @PathVariable @Parameter(description = "VideoLessons 식별자", required = true) Long videoLessonsId,
+            @UserSession @Parameter(hidden = true) User user
+    );
+
+    @Operation(summary = "영상강의 진도 조회(개인)", description = "특정 영상강의의 코스 전체 진도와 마지막 시청 지점을 조회합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "정상 응답",
+                    content = {@Content(mediaType = "application/json"
+                            ,schema = @Schema(implementation = VideoLessonsProgressResponse.class)
+                    )}),
+            @ApiResponse(responseCode = "400", description = "BAD REQUEST",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL SERVER ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+    })
+    ResponseEntity<ResponseDto<?>> getVideoLessonsProgress(
+            @PathVariable @Parameter(description = "VideoLessons 식별자", required = true) Long videoLessonsId,
+            @UserSession @Parameter(hidden = true) User user
+    );
+
+    @Operation(summary = "영상강의 레슨 진도 저장(개인)", description = "현재 레슨의 초 단위 시청 진도를 저장합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "정상 응답",
+                    content = {@Content(mediaType = "application/json"
+                            ,schema = @Schema(implementation = VideoLessonsProgressResponse.class)
+                    )}),
+            @ApiResponse(responseCode = "400", description = "BAD REQUEST",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL SERVER ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+    })
+    ResponseEntity<ResponseDto<?>> putVideoLessonsProgress(
+            @PathVariable @Parameter(description = "VideoLessons 식별자", required = true) Long videoLessonsId,
+            @PathVariable @Parameter(description = "SubChapter 식별자", required = true) Long subChapterId,
+            @RequestBody VideoLessonsProgressUpsertDto requestDto,
+            @UserSession @Parameter(hidden = true) User user
+    );
+
+    @Operation(summary = "영상강의 레슨 처음부터 보기(개인)", description = "특정 레슨의 저장된 재생 위치를 0초로 초기화합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "정상 응답",
+                    content = {@Content(mediaType = "application/json"
+                            ,schema = @Schema(implementation = VideoLessonsProgressResponse.class)
+                    )}),
+            @ApiResponse(responseCode = "400", description = "BAD REQUEST",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL SERVER ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+    })
+    ResponseEntity<ResponseDto<?>> restartVideoLessonsProgress(
+            @PathVariable @Parameter(description = "VideoLessons 식별자", required = true) Long videoLessonsId,
+            @PathVariable @Parameter(description = "SubChapter 식별자", required = true) Long subChapterId,
             @UserSession @Parameter(hidden = true) User user
     );
 

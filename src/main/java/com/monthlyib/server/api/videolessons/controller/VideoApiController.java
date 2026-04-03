@@ -62,6 +62,48 @@ public class VideoApiController implements VideoApiControllerIfs{
     }
 
     @Override
+    @GetMapping("/api/video/progress/{videoLessonsId}")
+    public ResponseEntity<ResponseDto<?>> getVideoLessonsProgress(
+            @PathVariable Long videoLessonsId,
+            @com.monthlyib.server.annotation.UserSession User user
+    ) {
+        VideoLessonsProgressResponseDto response = videoLessonsService.findVideoLessonsProgress(user, videoLessonsId);
+        return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
+    }
+
+    @Override
+    @PutMapping("/api/video/progress/{videoLessonsId}/lesson/{subChapterId}")
+    public ResponseEntity<ResponseDto<?>> putVideoLessonsProgress(
+            @PathVariable Long videoLessonsId,
+            @PathVariable Long subChapterId,
+            @RequestBody VideoLessonsProgressUpsertDto requestDto,
+            @com.monthlyib.server.annotation.UserSession User user
+    ) {
+        VideoLessonsProgressResponseDto response = videoLessonsService.upsertVideoLessonsProgress(
+                user,
+                videoLessonsId,
+                subChapterId,
+                requestDto
+        );
+        return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
+    }
+
+    @Override
+    @PostMapping("/api/video/progress/{videoLessonsId}/lesson/{subChapterId}/restart")
+    public ResponseEntity<ResponseDto<?>> restartVideoLessonsProgress(
+            @PathVariable Long videoLessonsId,
+            @PathVariable Long subChapterId,
+            @com.monthlyib.server.annotation.UserSession User user
+    ) {
+        VideoLessonsProgressResponseDto response = videoLessonsService.restartVideoLessonsProgress(
+                user,
+                videoLessonsId,
+                subChapterId
+        );
+        return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
+    }
+
+    @Override
     @PostMapping("/api/video-image/{videoLessonsId}")
     public ResponseEntity<ResponseDto<?>> postVideoLessonsImage(Long videoLessonsId, MultipartFile[] multipartFile, User user) {
         VideoLessonsResponseDto response = videoLessonsService.createOrUpdateVideoLessonsThumbnail(videoLessonsId, multipartFile);

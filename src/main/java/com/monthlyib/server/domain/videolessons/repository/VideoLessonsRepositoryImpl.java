@@ -37,6 +37,8 @@ public class VideoLessonsRepositoryImpl extends QuerydslRepositorySupport implem
 
     private final VideoLessonsUserJpaRepository videoLessonsUserJpaRepository;
 
+    private final VideoLessonsProgressJpaRepository videoLessonsProgressJpaRepository;
+
 
     public VideoLessonsRepositoryImpl(
             VideoLessonsJpaRepository videoLessonsJpaRepository,
@@ -45,7 +47,8 @@ public class VideoLessonsRepositoryImpl extends QuerydslRepositorySupport implem
             VideoLessonsCategoryJpaRepository videoLessonsCategoryJpaRepository,
             VideoLessonsMainChapterJpaRepository videoLessonsMainChapterJpaRepository,
             VideoLessonsThumbnailJpaRepository videoLessonsThumbnailJpaRepository,
-            VideoLessonsUserJpaRepository videoLessonsUserJpaRepository
+            VideoLessonsUserJpaRepository videoLessonsUserJpaRepository,
+            VideoLessonsProgressJpaRepository videoLessonsProgressJpaRepository
     ) {
         super(VideoLessons.class);
         this.videoLessonsJpaRepository = videoLessonsJpaRepository;
@@ -55,6 +58,7 @@ public class VideoLessonsRepositoryImpl extends QuerydslRepositorySupport implem
         this.videoLessonsMainChapterJpaRepository = videoLessonsMainChapterJpaRepository;
         this.videoLessonsThumbnailJpaRepository = videoLessonsThumbnailJpaRepository;
         this.videoLessonsUserJpaRepository = videoLessonsUserJpaRepository;
+        this.videoLessonsProgressJpaRepository = videoLessonsProgressJpaRepository;
     }
 
     QVideoLessons videoLessons = QVideoLessons.videoLessons;
@@ -128,6 +132,11 @@ public class VideoLessonsRepositoryImpl extends QuerydslRepositorySupport implem
     }
 
     @Override
+    public List<VideoLessonsSubChapter> findVideoSubChaptersByVideoLessonsId(Long videoLessonsId) {
+        return videoLessonsSubChapterJpaRepository.findAllByVideoLessonsId(videoLessonsId);
+    }
+
+    @Override
     public Optional<VideoLessonsSubChapter> findVideoSubChapter(Long videoLessonsSubChapterId) {
         return videoLessonsSubChapterJpaRepository.findById(videoLessonsSubChapterId);
     }
@@ -178,13 +187,32 @@ public class VideoLessonsRepositoryImpl extends QuerydslRepositorySupport implem
     }
 
     @Override
+    public VideoLessonsProgress save(VideoLessonsProgress videoLessonsProgress) {
+        return videoLessonsProgressJpaRepository.save(videoLessonsProgress);
+    }
+
+    @Override
     public Optional<VideoLessonsUser> findVideoLessonsUser(Long videoLessonsId, Long userId) {
         return videoLessonsUserJpaRepository.findByUserIdAndVideoLessonsId(userId, videoLessonsId);
     }
 
     @Override
+    public Optional<VideoLessonsProgress> findVideoLessonsProgress(Long userId, Long videoLessonsId, Long subChapterId) {
+        return videoLessonsProgressJpaRepository.findByUserIdAndVideoLessonsIdAndSubChapterId(
+                userId,
+                videoLessonsId,
+                subChapterId
+        );
+    }
+
+    @Override
     public Page<VideoLessonsUser> findAllVideoLessonsUser(Long userId, Pageable pageable) {
         return videoLessonsUserJpaRepository.findAllByUserId(userId, pageable);
+    }
+
+    @Override
+    public List<VideoLessonsProgress> findAllVideoLessonsProgress(Long userId, Long videoLessonsId) {
+        return videoLessonsProgressJpaRepository.findAllByUserIdAndVideoLessonsId(userId, videoLessonsId);
     }
 
     @Override
