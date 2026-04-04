@@ -19,6 +19,7 @@ import com.monthlyib.server.file.service.FileService;
 import com.monthlyib.server.openapi.user.dto.*;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
+import io.jsonwebtoken.ExpiredJwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -73,8 +74,7 @@ public class UserService {
         UserStatus userStatus = findUser.getUserStatus();
         verifyUserStatus(userStatus);
         if (password.equals(findUser.getPassword()) || passwordEncoder.matches(password, findUser.getPassword())) {
-            Token token = tokenizer.delegateToken(findUser);
-            return LoginApiResponseDto.of(token.getAccessToken(), findUser);
+            return issueLoginResponse(findUser);
         } else {
             throw new ServiceLogicException(ErrorCode.WRONG_PASSWORD);
         }
@@ -87,10 +87,10 @@ public class UserService {
         String email = httpClientService.generateLoginRequest(socialLoginDto);
         try {
             User user = createOrVerifiedUserByEmailAndLoginType(email, socialLoginDto.getLoginType());
-            Token token = tokenizer.delegateToken(user);
+            LoginApiResponseDto loginResponse = issueLoginResponse(user);
             response.setHeader("userId", String.valueOf(user.getUserId()));
             response.setHeader("userStatus", user.getUserStatus().name());
-            return LoginApiResponseDto.of(token.getAccessToken(), user);
+            return loginResponse;
         } catch (ServiceLogicException e) {
             if (e.getErrorCode().equals(ErrorCode.USER_EXIST)) {
                 User user = userRepository.findByEmail(email)
@@ -106,10 +106,10 @@ public class UserService {
         String email = info.getEmail();
         try {
             User user = createOrVerifiedUserByEmailAndLoginType(email, info.getLoginType().name());
-            Token token = tokenizer.delegateToken(user);
+            LoginApiResponseDto loginResponse = issueLoginResponse(user);
             response.setHeader("userId", String.valueOf(user.getUserId()));
             response.setHeader("userStatus", user.getUserStatus().name());
-            return LoginApiResponseDto.of(token.getAccessToken(), user);
+            return loginResponse;
         } catch (ServiceLogicException e) {
             if (e.getErrorCode().equals(ErrorCode.USER_EXIST)) {
                 User user = userRepository.findByEmail(email)
@@ -242,16 +242,39 @@ public class UserService {
     }
 
 
-    public LoginApiResponseDto refreshToken(Long userId) {
+    public LoginApiResponseDto refreshToken(Long userId, RefreshTokenRequestDto requestDto) {
         try {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
+            String requestRefreshToken = Optional.ofNullable(requestDto)
+                    .map(RefreshTokenRequestDto::getRefreshToken)
+                    .filter(token -> !token.isBlank())
+                    .orElseThrow(() -> new ServiceLogicException(ErrorCode.EXPIRED_REFRESH_TOKEN));
             RefreshDto refresh = refreshService.getRefresh(user.getUsername());
-            tokenizer.verifyAccessToken(refresh.getRefreshToken());
+            tokenizer.verifyAccessToken(requestRefreshToken);
+            if (!refresh.getRefreshToken().equals(requestRefreshToken)) {
+                throw new ServiceLogicException(ErrorCode.EXPIRED_REFRESH_TOKEN);
+            }
+            String refreshUsername = tokenizer.getUsername(requestRefreshToken);
+            if (!user.getUsername().equals(refreshUsername)) {
+                throw new ServiceLogicException(ErrorCode.EXPIRED_REFRESH_TOKEN);
+            }
+            long refreshSessionVersion = Long.parseLong(String.valueOf(
+                    tokenizer.getClaims(
+                            requestRefreshToken,
+                            tokenizer.encodeBase64SecretKey(tokenizer.getSecretKey())
+                    ).getBody().getOrDefault("sessionVersion", 0L)
+            ));
+            long currentSessionVersion = user.getSessionVersion() == null ? 0L : user.getSessionVersion();
+            if (refreshSessionVersion != currentSessionVersion) {
+                throw new ServiceLogicException(ErrorCode.SESSION_EXPIRED_BY_NEW_LOGIN);
+            }
             Token token = tokenizer.delegateToken(user);
-            return LoginApiResponseDto.of(token.getAccessToken(), user);
+            return LoginApiResponseDto.of(token, user);
         } catch (ServiceLogicException e) {
             throw e;
+        } catch (ExpiredJwtException e) {
+            throw new ServiceLogicException(ErrorCode.EXPIRED_REFRESH_TOKEN);
         } catch (Exception ex) {
             throw new ServiceLogicException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
@@ -310,6 +333,18 @@ public class UserService {
         } else {
             return image.get(0);
         }
+    }
+
+    private LoginApiResponseDto issueLoginResponse(User user) {
+        User persistedUser = rotateUserSession(user);
+        Token token = tokenizer.delegateToken(persistedUser);
+        return LoginApiResponseDto.of(token, persistedUser);
+    }
+
+    private User rotateUserSession(User user) {
+        long currentSessionVersion = user.getSessionVersion() == null ? 0L : user.getSessionVersion();
+        user.setSessionVersion(currentSessionVersion + 1L);
+        return userRepository.save(user);
     }
 
 

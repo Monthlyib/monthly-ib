@@ -3,9 +3,7 @@ package com.monthlyib.server.auth.jwt;
 
 import com.monthlyib.server.auth.service.RefreshService;
 import com.monthlyib.server.auth.token.Token;
-import com.monthlyib.server.constant.ErrorCode;
 import com.monthlyib.server.domain.user.entity.User;
-import com.monthlyib.server.exception.ServiceLogicException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jws;
@@ -50,39 +48,37 @@ public class JwtTokenizer {
     }
 
     /* jwt 토큰을 생성 */
-    private Token generateToken(
+    private String generateToken(
             Map<String, Object> claims,
             String subject,
             String base64EncodedSecretKey
     ) {
         Key key = getKeyFromBase64EncodedSecretKey(base64EncodedSecretKey);
 
-        return new Token(
-                "Bearer " + Jwts.builder()
-                        .setClaims(claims)
-                        .setSubject(subject)
-                        .setIssuedAt(Calendar.getInstance().getTime())
-                        .setExpiration(getTokenExpiration(accessTokenExpirationMinutes))
-                        .signWith(key)
-                        .compact());
+        return "Bearer " + Jwts.builder()
+                .setClaims(claims)
+                .setSubject(subject)
+                .setIssuedAt(Calendar.getInstance().getTime())
+                .setExpiration(getTokenExpiration(accessTokenExpirationMinutes))
+                .signWith(key)
+                .compact();
 
     }
 
-    private Token generateRefreshToken(
+    private String generateRefreshToken(
             Map<String, Object> claims,
             String subject,
             String base64EncodedSecretKey
     ) {
         Key key = getKeyFromBase64EncodedSecretKey(base64EncodedSecretKey);
 
-        return new Token(
-                "Bearer " + Jwts.builder()
-                        .setClaims(claims)
-                        .setSubject(subject)
-                        .setIssuedAt(Calendar.getInstance().getTime())
-                        .setExpiration(getTokenExpiration(refreshTokenExpirationMinutes))
-                        .signWith(key)
-                        .compact());
+        return "Bearer " + Jwts.builder()
+                .setClaims(claims)
+                .setSubject(subject)
+                .setIssuedAt(Calendar.getInstance().getTime())
+                .setExpiration(getTokenExpiration(refreshTokenExpirationMinutes))
+                .signWith(key)
+                .compact();
 
     }
 
@@ -96,11 +92,13 @@ public class JwtTokenizer {
         claims.put("username", user.getUsername());
         claims.put("email", user.getEmail());
         claims.put("roles", user.getRoles());
+        claims.put("sessionVersion", user.getSessionVersion() == null ? 0L : user.getSessionVersion());
         String subject = user.getUsername();
         String base64SecretKey = encodeBase64SecretKey(getSecretKey());
-        Token refreshToken = generateRefreshToken(claims, subject, base64SecretKey);
-        refreshService.createRefresh(user.getUsername(), refreshToken.getAccessToken());
-        return generateToken(claims, subject, base64SecretKey);
+        String refreshToken = generateRefreshToken(claims, subject, base64SecretKey);
+        refreshService.createRefresh(user.getUsername(), refreshToken);
+        String accessToken = generateToken(claims, subject, base64SecretKey);
+        return new Token(accessToken, refreshToken);
     }
 
 
@@ -109,13 +107,7 @@ public class JwtTokenizer {
             String accessToken
     ) {
         String base64SecretKey = encodeBase64SecretKey(getSecretKey());
-        try {
-            verifySignature(getJws(accessToken), base64SecretKey);
-        } catch (ExpiredJwtException ee) {
-            throw new ServiceLogicException(ErrorCode.EXPIRED_ACCESS_TOKEN);
-        } catch (Exception e) {
-            throw e;
-        }
+        verifySignature(getJws(accessToken), base64SecretKey);
     }
 
     /* Server에서 발급한 토큰이 맞는지 검증 */
@@ -130,7 +122,6 @@ public class JwtTokenizer {
 
     /* Claims 정보를 가져옴 */
     public Jws<Claims> getClaims(String jwt, String base64EncodedSecretKey) {
-        verifyAccessToken(jwt);
         Key key = getKeyFromBase64EncodedSecretKey(base64EncodedSecretKey);
         return Jwts.parserBuilder()
                 .setSigningKey(key)

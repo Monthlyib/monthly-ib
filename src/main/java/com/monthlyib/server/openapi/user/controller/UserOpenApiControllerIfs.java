@@ -83,7 +83,8 @@ public interface UserOpenApiControllerIfs {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
     })
     ResponseEntity<ResponseDto<?>> refreshToken(
-            @PathVariable @Parameter(description = "회원의 식별자", required = true) Long userId
+            @PathVariable @Parameter(description = "회원의 식별자", required = true) Long userId,
+            @RequestBody RefreshTokenRequestDto requestDto
     );
 
     class UserResponse extends ResponseDto<UserResponseDto> {}

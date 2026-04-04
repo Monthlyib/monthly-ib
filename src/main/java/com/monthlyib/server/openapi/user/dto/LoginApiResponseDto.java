@@ -2,6 +2,7 @@ package com.monthlyib.server.openapi.user.dto;
 
 import com.monthlyib.server.constant.Authority;
 import com.monthlyib.server.constant.UserStatus;
+import com.monthlyib.server.auth.token.Token;
 import com.monthlyib.server.domain.user.entity.User;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -19,6 +20,9 @@ public class LoginApiResponseDto {
 
     @Schema(description = "AccessToken")
     private String accessToken;
+
+    @Schema(description = "RefreshToken")
+    private String refreshToken;
 
     @Schema(description = "회원 식별자")
     private Long userId;
@@ -39,13 +43,14 @@ public class LoginApiResponseDto {
     private UserStatus userStatus;
 
 
-    public static LoginApiResponseDto of(String accessToken, User user) {
+    public static LoginApiResponseDto of(Token token, User user) {
         return LoginApiResponseDto.builder()
                 .userId(user.getUserId())
                 .username(user.getUsername())
                 .nickname(user.getNickName())
                 .email(user.getEmail())
-                .accessToken(accessToken)
+                .accessToken(token.getAccessToken())
+                .refreshToken(token.getRefreshToken())
                 .authority(user.getAuthority())
                 .userStatus(user.getUserStatus())
                 .build();

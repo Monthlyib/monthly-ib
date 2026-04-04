@@ -5,6 +5,7 @@ import com.monthlyib.server.auth.handler.UserAccessDeniedHandler;
 import com.monthlyib.server.auth.handler.UserAuthenticationEntryPoint;
 import com.monthlyib.server.auth.jwt.JwtTokenizer;
 import com.monthlyib.server.auth.util.CustomAuthorityUtils;
+import com.monthlyib.server.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,6 +32,8 @@ public class SecConfig {
 
     private final CustomAuthorityUtils authorityUtils;
 
+    private final UserRepository userRepository;
+
 
     @Bean
     PasswordEncoder passwordEncoder() {
@@ -46,7 +49,8 @@ public class SecConfig {
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        JwtAuthorizationFilter jwtVerificationFilter = new JwtAuthorizationFilter(jwtTokenizer, authorityUtils);
+        JwtAuthorizationFilter jwtVerificationFilter =
+                new JwtAuthorizationFilter(jwtTokenizer, authorityUtils, userRepository);
 
         http
                 .httpBasic(AbstractHttpConfigurer::disable)

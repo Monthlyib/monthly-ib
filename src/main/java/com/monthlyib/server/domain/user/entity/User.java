@@ -84,6 +84,10 @@ public class User extends Auditable {
     @Enumerated(EnumType.STRING)
     private LoginType loginType;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private Long sessionVersion = 0L;
+
 
     /*
     * 사용하지 않음
@@ -135,6 +139,7 @@ public class User extends Auditable {
                 .country("정보 없음")
                 .userStatus(UserStatus.WAIT_INFO)
                 .loginType(LoginType.valueOf(loginType))
+                .sessionVersion(0L)
                 .roles(CustomAuthorityUtils.createUserRoles(uuid))
                 .authority(Authority.USER)
                 .videoLessonsIdList(new ArrayList<>())
@@ -159,6 +164,7 @@ public class User extends Auditable {
                 .memo("")
                 .userStatus(UserStatus.ACTIVE)
                 .loginType(LoginType.BASIC)
+                .sessionVersion(0L)
                 .roles(CustomAuthorityUtils.createUserRoles(dto.getUsername()))
                 .videoLessonsIdList(new ArrayList<>())
                 .termsOfUseCheck(dto.isTermsOfUseCheck())

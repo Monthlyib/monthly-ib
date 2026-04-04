@@ -10,7 +10,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -50,8 +52,11 @@ public class UserOpenApiController implements UserOpenApiControllerIfs {
 
     @Override
     @PostMapping("/reissue-token/{userId}")
-    public ResponseEntity<ResponseDto<?>> refreshToken(Long userId) {
-        LoginApiResponseDto response = userService.refreshToken(userId);
+    public ResponseEntity<ResponseDto<?>> refreshToken(
+            @PathVariable Long userId,
+            @RequestBody RefreshTokenRequestDto requestDto
+    ) {
+        LoginApiResponseDto response = userService.refreshToken(userId, requestDto);
         log.info("# Reissue Token");
         return ResponseEntity.ok().body(ResponseDto.of(response, Result.ok()));
     }

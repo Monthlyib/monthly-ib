@@ -5,6 +5,8 @@ import com.monthlyib.server.auth.jwt.JwtTokenizer;
 import com.monthlyib.server.auth.util.CustomAuthorityUtils;
 import com.monthlyib.server.constant.Authority;
 import com.monthlyib.server.constant.ErrorCode;
+import com.monthlyib.server.domain.user.entity.User;
+import com.monthlyib.server.domain.user.repository.UserRepository;
 import com.monthlyib.server.exception.ServiceLogicException;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
@@ -36,6 +38,8 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
     private final CustomAuthorityUtils authorityUtils;
 
+    private final UserRepository userRepository;
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -45,6 +49,7 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
         try {
             log.debug("### Access Process [API Request]");
             Map<String, Object> claims = getHeaderClaims(request);
+            verifyCurrentSession(claims);
             setAuthenticationToContext(claims);
             RequestAttributes requestContext = Objects.requireNonNull(RequestContextHolder.getRequestAttributes());
             requestContext.setAttribute("userId", claims.get("userId"), RequestAttributes.SCOPE_REQUEST);
@@ -90,5 +95,22 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
                 new UsernamePasswordAuthenticationToken(username, null, roles);
         log.debug("### SecurityContextHolder SetAuthentication = {}", rolesList);
         SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+
+    private void verifyCurrentSession(Map<String, Object> claims) {
+        Object userId = claims.get("userId");
+        if (userId == null) {
+            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED_REQUEST_API);
+        }
+
+        User user = userRepository.findById(Long.parseLong(userId.toString()))
+                .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
+
+        long tokenSessionVersion = Long.parseLong(String.valueOf(claims.getOrDefault("sessionVersion", 0L)));
+        long currentSessionVersion = user.getSessionVersion() == null ? 0L : user.getSessionVersion();
+
+        if (tokenSessionVersion != currentSessionVersion) {
+            throw new ServiceLogicException(ErrorCode.SESSION_EXPIRED_BY_NEW_LOGIN);
+        }
     }
 }
