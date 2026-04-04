@@ -46,7 +46,9 @@ public class Tutoring extends Auditable {
     @Enumerated(EnumType.STRING)
     private TutoringStatus tutoringStatus;
 
-    public static Tutoring create(TutoringPostRequestDto dto, String requestUsername, String requestUserNickName) {
+    private Long subscribeUserId;
+
+    public static Tutoring create(TutoringPostRequestDto dto, String requestUsername, String requestUserNickName, Long subscribeUserId) {
         return Tutoring.builder()
                 .date(dto.getDate())
                 .hour(dto.getHour())
@@ -56,6 +58,7 @@ public class Tutoring extends Auditable {
                 .requestUserNickName(requestUserNickName)
                 .detail(dto.getDetail())
                 .tutoringStatus(TutoringStatus.WAIT)
+                .subscribeUserId(subscribeUserId)
                 .build();
     }
 

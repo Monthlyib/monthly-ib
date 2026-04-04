@@ -49,16 +49,19 @@ public class Question extends Auditable {
     @Column(nullable = false)
     private Long answerId;
 
-    public static Question create(QuestionPostDto dto, User user) {
+    private Long subscribeUserId;
+
+    public static Question create(QuestionPostDto dto, User user, Long subscribeUserId) {
         return Question.builder()
                 .title(dto.getTitle())
                 .content(dto.getContent())
                 .subject(dto.getSubject())
-                .authorId(dto.getAuthorId())
+                .authorId(user.getUserId())
                 .authorUsername(user.getUsername())
                 .authorNickName(user.getNickName())
                 .questionStatus(QuestionStatus.ANSWER_WAIT)
                 .answerId(0L)
+                .subscribeUserId(subscribeUserId)
                 .build();
     }
 

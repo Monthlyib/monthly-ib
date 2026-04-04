@@ -27,11 +27,17 @@ public class SubscribeResponseDto {
 
     private int questionCount;
 
+    private boolean unlimitedQuestions;
+
     private int tutoringCount;
+
+    private boolean unlimitedTutoring;
 
     private int subscribeMonthPeriod;
 
     private int videoLessonsCount;
+
+    private boolean unlimitedVideoLessons;
 
     private List<Long> videoLessonsIdList;
 
@@ -50,9 +56,12 @@ public class SubscribeResponseDto {
                 .content(subscribe.getContent())
                 .price(subscribe.getPrice())
                 .questionCount(subscribe.getQuestionCount())
+                .unlimitedQuestions(subscribe.isUnlimitedQuestions())
                 .tutoringCount(subscribe.getTutoringCount())
+                .unlimitedTutoring(subscribe.isUnlimitedTutoring())
                 .subscribeMonthPeriod(subscribe.getSubscribeMonthPeriod())
                 .videoLessonsCount(subscribe.getVideoLessonsCount())
+                .unlimitedVideoLessons(subscribe.isUnlimitedVideoLessons())
                 .videoLessonsIdList(subscribe.getVideoLessonsIdList())
                 .color(subscribe.getColor())
                 .fontColor(subscribe.getFontColor())

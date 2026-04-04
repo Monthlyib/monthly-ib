@@ -46,7 +46,7 @@ public class QuestionApiController implements QuestionApiControllerIfs{
     @Override
     @PostMapping("/api/question")
     public ResponseEntity<ResponseDto<?>> postQuestion(QuestionPostDto requestDto, User user) {
-        QuestionResponseDto response = questionService.createQuestion(requestDto, user.getUserId());
+        QuestionResponseDto response = questionService.createQuestion(requestDto, user);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 
@@ -60,7 +60,7 @@ public class QuestionApiController implements QuestionApiControllerIfs{
     @Override
     @DeleteMapping("/api/question/{questionId}")
     public ResponseEntity<ResponseDto<?>> deleteQuestion(Long questionId, User user) {
-        questionService.deleteQuestion(questionId, user.getUserId());
+        questionService.deleteQuestion(questionId, user);
         return ResponseEntity.ok(ResponseDto.of(Result.ok()));
     }
 

@@ -6,6 +6,7 @@ import com.monthlyib.server.constant.AwsProperty;
 import com.monthlyib.server.constant.ErrorCode;
 import com.monthlyib.server.constant.VideoChapterStatus;
 import com.monthlyib.server.constant.VideoLessonsUserStatus;
+import com.monthlyib.server.domain.subscribe.service.SubscribeService;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.user.service.UserService;
 import com.monthlyib.server.domain.videolessons.entity.*;
@@ -41,6 +42,7 @@ public class VideoLessonsService {
 
     private final FileService fileService;
     private final UserService userService;
+    private final SubscribeService subscribeService;
 
     public Page<VideoLessonsSimpleResponseDto> findAllSimple(VideoLessonsSearchDto dto) {
         return videoLessonsRepository.findAll(
@@ -234,6 +236,7 @@ public class VideoLessonsService {
 
     public VideoLessonsResponseDto createVideoLessonsUser(User user, Long videoLessonsId) {
         verifyVideoLessons(videoLessonsId);
+        subscribeService.consumeCourseAccess(user, videoLessonsId);
         videoLessonsRepository.findVideoLessonsUser(videoLessonsId, user.getUserId())
                 .orElseGet(() -> videoLessonsRepository.save(
                         VideoLessonsUser.builder()
@@ -247,6 +250,7 @@ public class VideoLessonsService {
 
     public VideoLessonsProgressResponseDto findVideoLessonsProgress(User user, Long videoLessonsId) {
         verifyVideoLessons(videoLessonsId);
+        subscribeService.ensureCourseAccessible(user, videoLessonsId);
         verifyVideoLessonsUser(videoLessonsId, user.getUserId());
         return buildProgressResponse(user.getUserId(), videoLessonsId);
     }
@@ -258,6 +262,7 @@ public class VideoLessonsService {
             VideoLessonsProgressUpsertDto dto
     ) {
         verifyVideoLessons(videoLessonsId);
+        subscribeService.ensureCourseAccessible(user, videoLessonsId);
         verifyVideoLessonsUser(videoLessonsId, user.getUserId());
         VideoLessonsSubChapter subChapter = verifyProgressTarget(videoLessonsId, subChapterId);
 
@@ -302,6 +307,7 @@ public class VideoLessonsService {
 
     public VideoLessonsProgressResponseDto restartVideoLessonsProgress(User user, Long videoLessonsId, Long subChapterId) {
         verifyVideoLessons(videoLessonsId);
+        subscribeService.ensureCourseAccessible(user, videoLessonsId);
         verifyVideoLessonsUser(videoLessonsId, user.getUserId());
         VideoLessonsSubChapter subChapter = verifyProgressTarget(videoLessonsId, subChapterId);
 

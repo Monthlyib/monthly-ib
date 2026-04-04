@@ -17,11 +17,17 @@ public class SubscribeUserPatchDto {
 
     private Integer questionCount;
 
+    private Boolean unlimitedQuestions;
+
     private Integer tutoringCount;
+
+    private Boolean unlimitedTutoring;
 
     private Integer subscribeMonthPeriod;
 
     private Integer videoLessonsCount;
+
+    private Boolean unlimitedVideoLessons;
 
     private List<Long> videoLessonsIdList;
 

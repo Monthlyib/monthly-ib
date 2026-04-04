@@ -5,6 +5,7 @@ import com.monthlyib.server.constant.Authority;
 import com.monthlyib.server.constant.ErrorCode;
 import com.monthlyib.server.constant.TutoringStatus;
 import com.monthlyib.server.constant.TutoringTime;
+import com.monthlyib.server.domain.subscribe.service.SubscribeService;
 import com.monthlyib.server.domain.tutoring.entity.Tutoring;
 import com.monthlyib.server.domain.tutoring.repository.TutoringRepository;
 import com.monthlyib.server.domain.user.entity.User;
@@ -40,6 +41,7 @@ public class TutoringService {
     private final ApplicationEventPublisher publisher;
 
     private final UserRepository userRepository;
+    private final SubscribeService subscribeService;
 
 
     public TutoringSimpleResponseDto findTutoringSimple(TutoringSearchDto dto) {
@@ -89,7 +91,15 @@ public class TutoringService {
         if (find.size() == 3) {
             throw new ServiceLogicException(ErrorCode.BAD_REQUEST);
         }
-        Tutoring newTutoring = Tutoring.create(dto, user.getUsername(), user.getNickName());
+        Long subscribeUserId = subscribeService.consumeTutoringAccess(user);
+        TutoringPostRequestDto request = TutoringPostRequestDto.builder()
+                .requestUserId(user.getUserId())
+                .date(dto.getDate())
+                .hour(dto.getHour())
+                .minute(dto.getMinute())
+                .detail(dto.getDetail())
+                .build();
+        Tutoring newTutoring = Tutoring.create(request, user.getUsername(), user.getNickName(), subscribeUserId);
         Tutoring save = tutoringRepository.save(newTutoring);
         return TutoringResponseDto.of(save);
     }
@@ -102,8 +112,12 @@ public class TutoringService {
         }
         findTutoring.setDetail(Optional.ofNullable(dto.getDetail()).orElse(findTutoring.getDetail()));
         TutoringStatus tutoringStatus = dto.getTutoringStatus();
+        TutoringStatus previousStatus = findTutoring.getTutoringStatus();
         findTutoring.setTutoringStatus(Optional.ofNullable(tutoringStatus).orElse(findTutoring.getTutoringStatus()));
-        if (tutoringStatus.equals(TutoringStatus.CONFIRM)) {
+        if (tutoringStatus == TutoringStatus.CANCEL && previousStatus != TutoringStatus.CANCEL) {
+            subscribeService.restoreTutoringAccess(findTutoring.getSubscribeUserId());
+        }
+        if (tutoringStatus == TutoringStatus.CONFIRM) {
             User findUser = userRepository.findById(findTutoring.getRequestUserId())
                     .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
             publisher.publishEvent(new UserTutoringConfirmEvent(this, findUser.getEmail(), findTutoring.getRequestUserNickName(), findTutoring.getDate(), findTutoring.getHour(), findTutoring.getMinute()));
@@ -117,6 +131,9 @@ public class TutoringService {
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
         if (!user.getAuthority().equals(Authority.ADMIN) && !findTutoring.getRequestUserId().equals(user.getUserId())) {
             throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+        }
+        if (findTutoring.getTutoringStatus() != TutoringStatus.CANCEL) {
+            subscribeService.restoreTutoringAccess(findTutoring.getSubscribeUserId());
         }
         tutoringRepository.delete(tutoringId);
     }

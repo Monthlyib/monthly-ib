@@ -9,6 +9,7 @@ import com.monthlyib.server.constant.QuestionStatus;
 import com.monthlyib.server.domain.answer.entity.Answer;
 import com.monthlyib.server.domain.question.entity.Question;
 import com.monthlyib.server.domain.question.repository.QuestionRepository;
+import com.monthlyib.server.domain.subscribe.service.SubscribeService;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.user.repository.UserRepository;
 import com.monthlyib.server.event.UserQuestionConfirmEvent;
@@ -31,6 +32,7 @@ public class QuestionService {
     private final QuestionRepository questionRepository;
 
     private final UserRepository userRepository;
+    private final SubscribeService subscribeService;
 
     private final ApplicationEventPublisher publisher;
 
@@ -85,10 +87,11 @@ public class QuestionService {
     }
 
 
-    public QuestionResponseDto createQuestion(QuestionPostDto questionPostDto, Long userId) {
-        User user = userRepository.findById(questionPostDto.getAuthorId())
+    public QuestionResponseDto createQuestion(QuestionPostDto questionPostDto, User requestUser) {
+        User user = userRepository.findById(requestUser.getUserId())
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
-        Question newQuestion = Question.create(questionPostDto, user);
+        Long subscribeUserId = subscribeService.consumeQuestionAccess(user);
+        Question newQuestion = Question.create(questionPostDto, user, subscribeUserId);
         return QuestionResponseDto.of(questionRepository.saveQuestion(newQuestion), null);
     }
 
@@ -103,12 +106,17 @@ public class QuestionService {
         return QuestionResponseDto.of(questionRepository.saveQuestion(update), answer);
     }
 
-    public void deleteQuestion(Long questionId, Long userId) {
-        QuestionResponseDto findQuestion = questionRepository.findQuestionById(questionId);
+    public void deleteQuestion(Long questionId, User user) {
+        Question findQuestion = questionRepository.findQuestionByQuestionId(questionId)
+                .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
         if (findQuestion.getQuestionStatus().equals(QuestionStatus.COMPLETE)) {
             throw new ServiceLogicException(ErrorCode.COMPLETE_QUESTION);
         }
+        if (!user.getAuthority().equals(Authority.ADMIN) && !findQuestion.getAuthorId().equals(user.getUserId())) {
+            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+        }
         questionRepository.deleteQuestion(questionId);
+        subscribeService.restoreQuestionAccess(findQuestion.getSubscribeUserId());
     }
 
     public void createAnswer(AnswerPostDto answerPostDto, Long userId) {

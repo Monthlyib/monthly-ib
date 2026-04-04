@@ -7,7 +7,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -22,13 +21,19 @@ public class SubscribePostDto {
 
     private BigDecimal price;
 
-    private int questionCount;
+    private Integer questionCount;
 
-    private int tutoringCount;
+    private Boolean unlimitedQuestions;
 
-    private int subscribeMonthPeriod;
+    private Integer tutoringCount;
 
-    private int videoLessonsCount;
+    private Boolean unlimitedTutoring;
+
+    private Integer subscribeMonthPeriod;
+
+    private Integer videoLessonsCount;
+
+    private Boolean unlimitedVideoLessons;
 
     private List<Long> videoLessonsIdList;
 

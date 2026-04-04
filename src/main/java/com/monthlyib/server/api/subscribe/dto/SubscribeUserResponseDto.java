@@ -2,7 +2,6 @@ package com.monthlyib.server.api.subscribe.dto;
 
 
 import com.monthlyib.server.constant.SubscribeStatus;
-import com.monthlyib.server.domain.subscribe.entity.Subscribe;
 import com.monthlyib.server.domain.subscribe.entity.SubscribeUser;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,11 +37,17 @@ public class SubscribeUserResponseDto {
 
     private int questionCount;
 
+    private boolean unlimitedQuestions;
+
     private int tutoringCount;
+
+    private boolean unlimitedTutoring;
 
     private int subscribeMonthPeriod;
 
     private int videoLessonsCount;
+
+    private boolean unlimitedVideoLessons;
 
     private LocalDate expirationDate;
 
@@ -66,13 +71,17 @@ public class SubscribeUserResponseDto {
                 .subscribeId(subscribeUser.getSubscribeId())
                 .userId(subscribeUser.getUserId())
                 .userName(subscribeUser.getUserName())
+                .userNickName(subscribeUser.getUserNickName())
                 .title(subscribeUser.getTitle())
                 .content(subscribeUser.getContent())
                 .price(subscribeUser.getPrice())
                 .questionCount(subscribeUser.getQuestionCount())
+                .unlimitedQuestions(subscribeUser.isUnlimitedQuestions())
                 .tutoringCount(subscribeUser.getTutoringCount())
+                .unlimitedTutoring(subscribeUser.isUnlimitedTutoring())
                 .subscribeMonthPeriod(subscribeUser.getSubscribeMonthPeriod())
                 .videoLessonsCount(subscribeUser.getVideoLessonsCount())
+                .unlimitedVideoLessons(subscribeUser.isUnlimitedVideoLessons())
                 .expirationDate(subscribeUser.getExpirationDate())
                 .subscriptionDate(subscribeUser.getSubscriptionDate())
                 .subscriptionDay(subscribeUser.getSubscriptionDay())

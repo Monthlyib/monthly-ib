@@ -23,6 +23,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -73,6 +74,73 @@ public class SubscribeService {
                 .orElse(null);
     }
 
+    public SubscribeUser requireActiveSubscribe(User user) {
+        if (user.getAuthority() == Authority.ADMIN) {
+            return null;
+        }
+        return verifyActiveSubUser(user.getUserId());
+    }
+
+    public Long consumeQuestionAccess(User user) {
+        SubscribeUser activeSubscribe = requireActiveSubscribe(user);
+        if (activeSubscribe == null) {
+            return null;
+        }
+        if (!activeSubscribe.canAskQuestion()) {
+            throw new ServiceLogicException(ErrorCode.SUBSCRIBE_QUESTION_LIMIT_EXCEEDED);
+        }
+        activeSubscribe.consumeQuestion();
+        subscribeRepository.saveSubscribeUser(activeSubscribe);
+        return activeSubscribe.getSubscribeUserId();
+    }
+
+    public void restoreQuestionAccess(Long subscribeUserId) {
+        restoreConsumedCount(subscribeUserId, RestoreTarget.QUESTION);
+    }
+
+    public Long consumeTutoringAccess(User user) {
+        SubscribeUser activeSubscribe = requireActiveSubscribe(user);
+        if (activeSubscribe == null) {
+            return null;
+        }
+        if (!activeSubscribe.canCreateTutoring()) {
+            throw new ServiceLogicException(ErrorCode.SUBSCRIBE_TUTORING_LIMIT_EXCEEDED);
+        }
+        activeSubscribe.consumeTutoring();
+        subscribeRepository.saveSubscribeUser(activeSubscribe);
+        return activeSubscribe.getSubscribeUserId();
+    }
+
+    public void restoreTutoringAccess(Long subscribeUserId) {
+        restoreConsumedCount(subscribeUserId, RestoreTarget.TUTORING);
+    }
+
+    public void ensureCourseAccessible(User user, Long videoLessonsId) {
+        if (user.getAuthority() == Authority.ADMIN) {
+            return;
+        }
+        SubscribeUser activeSubscribe = verifyActiveSubUser(user.getUserId());
+        if (!activeSubscribe.hasCourseAccess(videoLessonsId)) {
+            throw new ServiceLogicException(ErrorCode.SUBSCRIBE_VIDEO_LESSONS_ACCESS_DENIED);
+        }
+    }
+
+    public void consumeCourseAccess(User user, Long videoLessonsId) {
+        if (user.getAuthority() == Authority.ADMIN) {
+            return;
+        }
+
+        SubscribeUser activeSubscribe = verifyActiveSubUser(user.getUserId());
+        if (activeSubscribe.hasCourseAccess(videoLessonsId)) {
+            return;
+        }
+        if (!activeSubscribe.canConsumeCourse()) {
+            throw new ServiceLogicException(ErrorCode.SUBSCRIBE_VIDEO_LESSONS_LIMIT_EXCEEDED);
+        }
+        activeSubscribe.grantCourseAccess(videoLessonsId);
+        subscribeRepository.saveSubscribeUser(activeSubscribe);
+    }
+
 
     public SubscribeResponseDto createSubscribe(SubscribePostDto dto, User user) {
         verifyAdmin(user);
@@ -118,6 +186,28 @@ public class SubscribeService {
         if (!user.getAuthority().equals(Authority.ADMIN) && !user.getUserId().equals(userId)) {
             throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
         }
+    }
+
+    private void restoreConsumedCount(Long subscribeUserId, RestoreTarget target) {
+        if (subscribeUserId == null) {
+            return;
+        }
+
+        SubscribeUser subscribeUser = subscribeRepository.findSubUser(subscribeUserId).orElse(null);
+        if (subscribeUser == null) {
+            return;
+        }
+
+        switch (target) {
+            case QUESTION -> subscribeUser.restoreQuestion();
+            case TUTORING -> subscribeUser.restoreTutoring();
+        }
+        subscribeRepository.saveSubscribeUser(subscribeUser);
+    }
+
+    private enum RestoreTarget {
+        QUESTION,
+        TUTORING
     }
 
 

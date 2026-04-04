@@ -5,8 +5,8 @@ import com.monthlyib.server.audit.Auditable;
 import jakarta.persistence.*;
 import lombok.*;
 
-import javax.swing.text.html.Option;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,13 +36,22 @@ public class Subscribe extends Auditable {
     private int questionCount;
 
     @Column(nullable = false)
+    private boolean unlimitedQuestions;
+
+    @Column(nullable = false)
     private int tutoringCount;
+
+    @Column(nullable = false)
+    private boolean unlimitedTutoring;
 
     @Column(nullable = false)
     private int subscribeMonthPeriod;
 
     @Column(nullable = false)
     private int videoLessonsCount;
+
+    @Column(nullable = false)
+    private boolean unlimitedVideoLessons;
 
     @Column(nullable = false)
     private String color;
@@ -58,11 +67,14 @@ public class Subscribe extends Auditable {
                 .title(dto.getTitle())
                 .content(dto.getContent())
                 .price(dto.getPrice())
-                .questionCount(dto.getQuestionCount())
-                .tutoringCount(dto.getTutoringCount())
-                .subscribeMonthPeriod(dto.getSubscribeMonthPeriod())
-                .videoLessonsCount(dto.getVideoLessonsCount())
-                .videoLessonsIdList(dto.getVideoLessonsIdList())
+                .questionCount(Optional.ofNullable(dto.getQuestionCount()).orElse(0))
+                .unlimitedQuestions(Optional.ofNullable(dto.getUnlimitedQuestions()).orElse(false))
+                .tutoringCount(Optional.ofNullable(dto.getTutoringCount()).orElse(0))
+                .unlimitedTutoring(Optional.ofNullable(dto.getUnlimitedTutoring()).orElse(false))
+                .subscribeMonthPeriod(Optional.ofNullable(dto.getSubscribeMonthPeriod()).orElse(0))
+                .videoLessonsCount(Optional.ofNullable(dto.getVideoLessonsCount()).orElse(0))
+                .unlimitedVideoLessons(Optional.ofNullable(dto.getUnlimitedVideoLessons()).orElse(false))
+                .videoLessonsIdList(new ArrayList<>(Optional.ofNullable(dto.getVideoLessonsIdList()).orElseGet(ArrayList::new)))
                 .color(dto.getColor())
                 .fontColor(dto.getFontColor())
                 .build();
@@ -73,10 +85,15 @@ public class Subscribe extends Auditable {
         this.content = Optional.ofNullable(dto.getContent()).orElse(this.content);
         this.price = Optional.ofNullable(dto.getPrice()).orElse(this.price);
         this.questionCount = Optional.ofNullable(dto.getQuestionCount()).orElse(this.questionCount);
+        this.unlimitedQuestions = Optional.ofNullable(dto.getUnlimitedQuestions()).orElse(this.unlimitedQuestions);
         this.tutoringCount = Optional.ofNullable(dto.getTutoringCount()).orElse(this.tutoringCount);
+        this.unlimitedTutoring = Optional.ofNullable(dto.getUnlimitedTutoring()).orElse(this.unlimitedTutoring);
         this.subscribeMonthPeriod = Optional.ofNullable(dto.getSubscribeMonthPeriod()).orElse(this.subscribeMonthPeriod);
         this.videoLessonsCount = Optional.ofNullable(dto.getVideoLessonsCount()).orElse(this.videoLessonsCount);
-        this.videoLessonsIdList = Optional.ofNullable(dto.getVideoLessonsIdList()).orElse(this.videoLessonsIdList);
+        this.unlimitedVideoLessons = Optional.ofNullable(dto.getUnlimitedVideoLessons()).orElse(this.unlimitedVideoLessons);
+        this.videoLessonsIdList = Optional.ofNullable(dto.getVideoLessonsIdList())
+                .map(list -> new ArrayList<>(list))
+                .orElseGet(() -> this.videoLessonsIdList == null ? new ArrayList<>() : new ArrayList<>(this.videoLessonsIdList));
         this.color = Optional.ofNullable(dto.getColor()).orElse(this.color);
         this.fontColor = Optional.ofNullable(dto.getFontColor()).orElse(this.fontColor);
         return this;
