@@ -26,6 +26,7 @@ public interface VideoApiControllerIfs {
     class VideoLessonsListResponse extends PageResponseDto<List<VideoLessonsSimpleResponseDto>> { }
     class VideoLessonsUserListResponse extends PageResponseDto<List<VideoLessonsUserSimpleResponseDto>> { }
     class VideoLessonsProgressResponse extends ResponseDto<VideoLessonsProgressResponseDto> { }
+    class VideoLessonsMediaUploadResponse extends ResponseDto<VideoLessonsMediaUploadResponseDto> { }
 
     @Operation(summary = "전체 영상강의 Data 요청(개인, 관리자)", description = "전체 영상강의 Data 리스트 요청")
     @ApiResponses({
@@ -187,19 +188,19 @@ public interface VideoApiControllerIfs {
     @Operation(summary = "영상강의 파일 등록/수정(관리자)", description = "영상강의 파일 등록 및 수정(이미 파일이 등록 되어있다면 업로드 파일로 수정됨)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "정상 응답",
-                    content = {@Content(mediaType = "application/json")}),
+                    content = {@Content(mediaType = "application/json"
+                            ,schema = @Schema(implementation = VideoLessonsMediaUploadResponse.class)
+                    )}),
             @ApiResponse(responseCode = "400", description = "BAD REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "500", description = "INTERNAL SERVER ERROR",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
     })
     ResponseEntity<ResponseDto<?>> postVideoFile(
-            @PathVariable @Parameter(description = "SubChapter 식별자", required = true) Long chapterId,
-            @RequestPart("file") MultipartFile[] multipartFile,
+            @RequestPart("file") MultipartFile multipartFile,
             @UserSession @Parameter(hidden = true) User user
     );
 
-    // 영상 강의 수정
     @Operation(summary = "영상강의 수정(관리자)", description = "영상강의 수정 요청")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "정상 응답",
@@ -216,6 +217,7 @@ public interface VideoApiControllerIfs {
             @UserSession @Parameter(hidden = true) User user
     );
 
+    // 영상 강의 수정
     // 영상 강의 삭제
     @Operation(summary = "영상강의 삭제(개인, 관리자)", description = "영상강의 삭제 요청")
     @ApiResponses({

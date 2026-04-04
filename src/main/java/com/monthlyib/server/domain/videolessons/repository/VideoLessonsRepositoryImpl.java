@@ -267,6 +267,11 @@ public class VideoLessonsRepositoryImpl extends QuerydslRepositorySupport implem
     }
 
     @Override
+    public void deleteAllVideoLessonsSubChapterByMainChapterId(Long mainChapterId) {
+        videoLessonsSubChapterJpaRepository.deleteAllByMainChapterId(mainChapterId);
+    }
+
+    @Override
     public void deleteAllVideoLessonsReplyByVideoLessonsId(Long videoLessonsId) {
         videoLessonsReplyJpaRepository.deleteAllByVideoLessonsId(videoLessonsId);
     }

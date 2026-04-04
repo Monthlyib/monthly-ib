@@ -68,6 +68,7 @@ public interface VideoLessonsRepository {
 
     void deleteAllVideoLessonsMainChapterByVideoLessonsId(Long videoLessonsId);
     void deleteAllVideoLessonsSubChapterByVideoLessonsId(Long videoLessonsId);
+    void deleteAllVideoLessonsSubChapterByMainChapterId(Long mainChapterId);
     void deleteAllVideoLessonsReplyByVideoLessonsId(Long videoLessonsId);
     void deleteAllVideoThumbnailByVideoLessonsId(Long videoLessonsId);
 

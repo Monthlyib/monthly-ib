@@ -1,8 +1,10 @@
 package com.monthlyib.server.domain.videolessons.service;
 
 import com.monthlyib.server.api.videolessons.dto.*;
+import com.monthlyib.server.constant.Authority;
 import com.monthlyib.server.constant.AwsProperty;
 import com.monthlyib.server.constant.ErrorCode;
+import com.monthlyib.server.constant.VideoChapterStatus;
 import com.monthlyib.server.constant.VideoLessonsUserStatus;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.user.service.UserService;
@@ -17,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
@@ -61,7 +64,8 @@ public class VideoLessonsService {
         return VideoLessonsResponseDto.of(findVideoLessons, mainChapter, reply);
     }
 
-    public VideoLessonsResponseDto createVideoLessons(VideoLessonsPostDto dto) {
+    public VideoLessonsResponseDto createVideoLessons(VideoLessonsPostDto dto, User user) {
+        verifyAdmin(user);
         List<VideoLessonsChapterPostDto> chapterPostDto = dto.getChapters();
         Long firstCategoryId = dto.getFirstCategoryId();
         Long secondCategoryId = dto.getSecondCategoryId();
@@ -83,7 +87,8 @@ public class VideoLessonsService {
         return findVideoLessons(videoLessonsId, 0);
     }
 
-    public VideoLessonsResponseDto updateVideoLessons(VideoLessonsPatchDto dto) {
+    public VideoLessonsResponseDto updateVideoLessons(VideoLessonsPatchDto dto, User user) {
+        verifyAdmin(user);
         List<VideoLessonsChapterPatchDto> chapterPatchDto = dto.getChapters();
         Long videoLessonsId = dto.getVideoLessonsId();
         Long firstCategoryId = dto.getFirstCategoryId();
@@ -95,17 +100,7 @@ public class VideoLessonsService {
         VideoLessons findVideo = verifyVideoLessons(videoLessonsId);
         findVideo.update(dto, firstCategory, secondCategory, thirdCategory);
         VideoLessons saveVideo = videoLessonsRepository.save(findVideo);
-        chapterPatchDto.stream().forEach(m -> {
-            VideoLessonsMainChapter main = verifyVideoLessonsMainChapter(m.getChapterId());
-            main.update(m);
-            VideoLessonsMainChapter saveMain = videoLessonsRepository.save(main);
-            m.getSubChapters().stream().forEach( s -> {
-                VideoLessonsSubChapter sub = verifyVideoLessonsSubChapter(s.getChapterId());
-                sub.update(s);
-                VideoLessonsSubChapter saveSub = videoLessonsRepository.save(sub);
-
-            });
-        });
+        syncMainChapters(videoLessonsId, chapterPatchDto);
         return findVideoLessons(videoLessonsId, 0);
     }
 
@@ -129,6 +124,30 @@ public class VideoLessonsService {
         }
         VideoLessons save = videoLessonsRepository.save(findVideo);
         return findVideoLessons(save.getVideoLessonsId(), 0);
+    }
+
+    public VideoLessonsMediaUploadResponseDto uploadVideoLessonFile(MultipartFile file, User user) {
+        verifyAdmin(user);
+        if (file == null || file.isEmpty()) {
+            throw new ServiceLogicException(ErrorCode.FILE_NOT_NULL);
+        }
+
+        String contentType = file.getContentType();
+        if (!StringUtils.hasText(contentType) || !contentType.startsWith("video/")) {
+            throw new ServiceLogicException(ErrorCode.BAD_REQUEST);
+        }
+
+        String url = fileService.saveMultipartFileForAws(
+                file,
+                AwsProperty.STORAGE,
+                "video-lessons/lesson/"
+        );
+
+        return VideoLessonsMediaUploadResponseDto.builder()
+                .fileUrl(url)
+                .fileName(file.getOriginalFilename())
+                .contentType(contentType)
+                .build();
     }
 
     public VideoLessonsReplyResponseDto createVideoLessonsReply(VideoLessonsReplyPostDto dto, User user) {
@@ -337,6 +356,106 @@ public class VideoLessonsService {
     private VideoLessonsUser verifyVideoLessonsUser(Long videoLessonsId, Long userId) {
         return videoLessonsRepository.findVideoLessonsUser(videoLessonsId, userId)
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.ACCESS_DENIED_REQUEST_API));
+    }
+
+    private void syncMainChapters(Long videoLessonsId, List<VideoLessonsChapterPatchDto> requestChapters) {
+        List<VideoLessonsChapterPatchDto> normalizedChapters = requestChapters == null
+                ? List.of()
+                : requestChapters.stream()
+                .sorted(Comparator.comparingInt(VideoLessonsChapterPatchDto::getChapterIndex))
+                .toList();
+
+        List<VideoLessonsMainChapter> existingMainChapters = videoLessonsRepository.findVideoMainChapters(videoLessonsId);
+        Set<Long> requestedMainChapterIds = normalizedChapters.stream()
+                .map(VideoLessonsChapterPatchDto::getChapterId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        existingMainChapters.stream()
+                .filter(chapter -> !requestedMainChapterIds.contains(chapter.getVideoLessonsMainChapterId()))
+                .forEach(chapter -> deleteMainChapter(chapter.getVideoLessonsMainChapterId()));
+
+        normalizedChapters.forEach(chapterDto -> {
+            VideoLessonsMainChapter mainChapter = saveMainChapter(videoLessonsId, chapterDto);
+            syncSubChapters(videoLessonsId, mainChapter.getVideoLessonsMainChapterId(), chapterDto.getSubChapters());
+        });
+    }
+
+    private VideoLessonsMainChapter saveMainChapter(Long videoLessonsId, VideoLessonsChapterPatchDto dto) {
+        if (dto.getChapterId() == null) {
+            return videoLessonsRepository.save(
+                    VideoLessonsMainChapter.builder()
+                            .videoLessonsId(videoLessonsId)
+                            .chapterStatus(dto.getChapterStatus() == null ? VideoChapterStatus.MAIN_CHAPTER : dto.getChapterStatus())
+                            .chapterTitle(dto.getChapterTitle())
+                            .chapterIndex(dto.getChapterIndex())
+                            .build()
+            );
+        }
+
+        VideoLessonsMainChapter mainChapter = verifyVideoLessonsMainChapter(dto.getChapterId());
+        if (!videoLessonsId.equals(mainChapter.getVideoLessonsId())) {
+            throw new ServiceLogicException(ErrorCode.NOT_FOUND_VIDEO_LESSONS_MAIN_CHAPTER);
+        }
+        mainChapter.update(dto);
+        return videoLessonsRepository.save(mainChapter);
+    }
+
+    private void syncSubChapters(Long videoLessonsId, Long mainChapterId, List<VideoLessonsSubChapterPatchDto> requestSubChapters) {
+        List<VideoLessonsSubChapterPatchDto> normalizedSubChapters = requestSubChapters == null
+                ? List.of()
+                : requestSubChapters.stream()
+                .sorted(Comparator.comparingInt(VideoLessonsSubChapterPatchDto::getChapterIndex))
+                .toList();
+
+        List<VideoLessonsSubChapter> existingSubChapters = videoLessonsRepository.findVideoSubChaptersByMainChapterId(mainChapterId);
+        Set<Long> requestedSubChapterIds = normalizedSubChapters.stream()
+                .map(VideoLessonsSubChapterPatchDto::getChapterId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        existingSubChapters.stream()
+                .filter(subChapter -> !requestedSubChapterIds.contains(subChapter.getVideoLessonsSubChapterId()))
+                .forEach(subChapter -> videoLessonsRepository.deleteVideoLessonsSubChapter(subChapter.getVideoLessonsSubChapterId()));
+
+        normalizedSubChapters.forEach(subChapterDto -> saveSubChapter(videoLessonsId, mainChapterId, subChapterDto));
+    }
+
+    private VideoLessonsSubChapter saveSubChapter(
+            Long videoLessonsId,
+            Long mainChapterId,
+            VideoLessonsSubChapterPatchDto dto
+    ) {
+        if (dto.getChapterId() == null) {
+            return videoLessonsRepository.save(
+                    VideoLessonsSubChapter.builder()
+                            .mainChapterId(mainChapterId)
+                            .videoLessonsId(videoLessonsId)
+                            .chapterStatus(dto.getChapterStatus() == null ? VideoChapterStatus.SUB_CHAPTER : dto.getChapterStatus())
+                            .chapterTitle(dto.getChapterTitle())
+                            .chapterIndex(dto.getChapterIndex())
+                            .videoFileUrl(dto.getVideoFileUrl())
+                            .build()
+            );
+        }
+
+        VideoLessonsSubChapter subChapter = verifyVideoLessonsSubChapter(dto.getChapterId());
+        if (!videoLessonsId.equals(subChapter.getVideoLessonsId()) || !mainChapterId.equals(subChapter.getMainChapterId())) {
+            throw new ServiceLogicException(ErrorCode.NOT_FOUND_VIDEO_LESSONS_SUB_CHAPTER);
+        }
+        subChapter.update(dto);
+        return videoLessonsRepository.save(subChapter);
+    }
+
+    private void deleteMainChapter(Long mainChapterId) {
+        videoLessonsRepository.deleteAllVideoLessonsSubChapterByMainChapterId(mainChapterId);
+        videoLessonsRepository.deleteVideoLessonsMainChapter(mainChapterId);
+    }
+
+    private void verifyAdmin(User user) {
+        if (user == null || user.getAuthority() != Authority.ADMIN) {
+            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+        }
     }
 
     private VideoLessonsSubChapter verifyProgressTarget(Long videoLessonsId, Long subChapterId) {

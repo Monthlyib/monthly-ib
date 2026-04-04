@@ -12,4 +12,6 @@ public interface VideoLessonsSubChapterJpaRepository extends JpaRepository<Video
     List<VideoLessonsSubChapter> findAllByMainChapterId(Long mainChapterId);
 
     void deleteAllByVideoLessonsId(Long videoLessonId);
+
+    void deleteAllByMainChapterId(Long mainChapterId);
 }

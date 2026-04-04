@@ -1,23 +1,18 @@
 package com.monthlyib.server.api.videolessons.controller;
 
-import com.amazonaws.services.dynamodbv2.xspec.L;
 import com.monthlyib.server.api.videolessons.dto.*;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.videolessons.service.VideoLessonsService;
 import com.monthlyib.server.dto.PageResponseDto;
 import com.monthlyib.server.dto.ResponseDto;
 import com.monthlyib.server.dto.Result;
-import com.monthlyib.server.utils.StubUtils;
 import io.swagger.v3.oas.annotations.Hidden;
 import lombok.RequiredArgsConstructor;
-import org.aspectj.weaver.Lint;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 @Controller
 @RequiredArgsConstructor
@@ -42,8 +37,11 @@ public class VideoApiController implements VideoApiControllerIfs{
 
     @Override
     @PostMapping("/api/video")
-    public ResponseEntity<ResponseDto<?>> postVideoLessons(VideoLessonsPostDto requestDto, User user) {
-        VideoLessonsResponseDto response = videoLessonsService.createVideoLessons(requestDto);
+    public ResponseEntity<ResponseDto<?>> postVideoLessons(
+            @RequestBody VideoLessonsPostDto requestDto,
+            @com.monthlyib.server.annotation.UserSession User user
+    ) {
+        VideoLessonsResponseDto response = videoLessonsService.createVideoLessons(requestDto, user);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 
@@ -105,22 +103,33 @@ public class VideoApiController implements VideoApiControllerIfs{
 
     @Override
     @PostMapping("/api/video-image/{videoLessonsId}")
-    public ResponseEntity<ResponseDto<?>> postVideoLessonsImage(Long videoLessonsId, MultipartFile[] multipartFile, User user) {
+    public ResponseEntity<ResponseDto<?>> postVideoLessonsImage(
+            @PathVariable Long videoLessonsId,
+            @RequestPart("image") MultipartFile[] multipartFile,
+            @com.monthlyib.server.annotation.UserSession User user
+    ) {
         VideoLessonsResponseDto response = videoLessonsService.createOrUpdateVideoLessonsThumbnail(videoLessonsId, multipartFile);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 
     @Override
-    @PostMapping("/api/video-file/{chapterId}")
+    @PostMapping("/api/video-file")
     @Hidden
-    public ResponseEntity<ResponseDto<?>> postVideoFile(Long chapterId, MultipartFile[] multipartFile, User user) {
-        return ResponseEntity.ok().build();
+    public ResponseEntity<ResponseDto<?>> postVideoFile(
+            @RequestPart("file") MultipartFile multipartFile,
+            @com.monthlyib.server.annotation.UserSession User user
+    ) {
+        VideoLessonsMediaUploadResponseDto response = videoLessonsService.uploadVideoLessonFile(multipartFile, user);
+        return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 
     @Override
     @PatchMapping("/api/video")
-    public ResponseEntity<ResponseDto<?>> patchVideo(VideoLessonsPatchDto requestDto, User user) {
-        VideoLessonsResponseDto response = videoLessonsService.updateVideoLessons(requestDto);
+    public ResponseEntity<ResponseDto<?>> patchVideo(
+            @RequestBody VideoLessonsPatchDto requestDto,
+            @com.monthlyib.server.annotation.UserSession User user
+    ) {
+        VideoLessonsResponseDto response = videoLessonsService.updateVideoLessons(requestDto, user);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 
