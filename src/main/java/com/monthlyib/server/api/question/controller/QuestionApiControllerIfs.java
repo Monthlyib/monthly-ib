@@ -39,6 +39,7 @@ public interface QuestionApiControllerIfs {
     })
     ResponseEntity<PageResponseDto<?>> getQuestionList(
             @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
             @ModelAttribute QuestionSearchDto requestDto
     );
 
@@ -58,7 +59,7 @@ public interface QuestionApiControllerIfs {
             @PathVariable @Parameter(description = "Question 식별자", required = true) Long questionId
     );
 
-    @Operation(summary = "특정 회원 전체 질문 Data 요청(개인, 관리자)", description = "특정 회원전체 질문 Data 리스트 요청(개인이 요청할 경우 본인의 질문만 응답)")
+    @Operation(summary = "질문 Data 요청(개인, 관리자)", description = "질문 Data 리스트 요청(개인이 요청할 경우 본인의 질문만, 관리자는 전체 질문 응답)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "정상 응답",
                     content = {@Content(mediaType = "application/json"
@@ -72,6 +73,7 @@ public interface QuestionApiControllerIfs {
     ResponseEntity<PageResponseDto<?>> getMyQuestionList(
             @ModelAttribute QuestionSearchDto requestDto,
             @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
             @UserSession @Parameter(hidden = true) User user
     );
 

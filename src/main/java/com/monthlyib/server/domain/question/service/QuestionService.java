@@ -2,6 +2,7 @@ package com.monthlyib.server.domain.question.service;
 
 
 import com.monthlyib.server.api.question.dto.*;
+import com.monthlyib.server.constant.Authority;
 import com.monthlyib.server.api.user.dto.UserResponseDto;
 import com.monthlyib.server.constant.ErrorCode;
 import com.monthlyib.server.constant.QuestionStatus;
@@ -33,9 +34,9 @@ public class QuestionService {
 
     private final ApplicationEventPublisher publisher;
 
-    public Page<QuestionResponseDto> findAllQuestion(int page, QuestionSearchDto searchDto) {
+    public Page<QuestionResponseDto> findAllQuestion(int page, int size, QuestionSearchDto searchDto) {
         return questionRepository.findAll(
-                PageRequest.of(page, 10, Sort.by("createAt").descending()),
+                PageRequest.of(page, size, Sort.by("createAt").descending()),
                 searchDto
         );
     }
@@ -50,14 +51,28 @@ public class QuestionService {
 
     public Page<QuestionResponseDto> findAllQuestionByUserId(
             int page,
+            int size,
             QuestionSearchDto searchDto,
             Long userId
     ) {
         return questionRepository.findAllByUserId(
                 userId,
-                PageRequest.of(page, 10, Sort.by("createAt").descending()),
+                PageRequest.of(page, size, Sort.by("createAt").descending()),
                 searchDto
         );
+    }
+
+    public Page<QuestionResponseDto> findQuestionPageForUser(
+            int page,
+            int size,
+            QuestionSearchDto searchDto,
+            User user
+    ) {
+        if (user.getAuthority() == Authority.ADMIN) {
+            return findAllQuestion(page, size, searchDto);
+        }
+
+        return findAllQuestionByUserId(page, size, searchDto, user.getUserId());
     }
 
     private Answer getAnswer(Long answerId) {

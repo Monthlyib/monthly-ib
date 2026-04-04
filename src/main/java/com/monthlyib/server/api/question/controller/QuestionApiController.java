@@ -24,8 +24,8 @@ public class QuestionApiController implements QuestionApiControllerIfs{
 
     @Override
     @GetMapping("/open-api/question")
-    public ResponseEntity<PageResponseDto<?>> getQuestionList(int page, QuestionSearchDto requestDto) {
-        Page<QuestionResponseDto> response = questionService.findAllQuestion(page, requestDto);
+    public ResponseEntity<PageResponseDto<?>> getQuestionList(int page, int size, QuestionSearchDto requestDto) {
+        Page<QuestionResponseDto> response = questionService.findAllQuestion(page, size, requestDto);
         return ResponseEntity.ok(PageResponseDto.of(response, response.getContent(), Result.ok()));
     }
 
@@ -38,8 +38,8 @@ public class QuestionApiController implements QuestionApiControllerIfs{
 
     @Override
     @GetMapping("/api/question")
-    public ResponseEntity<PageResponseDto<?>> getMyQuestionList(QuestionSearchDto requestDto, int page, User user) {
-        Page<QuestionResponseDto> response = questionService.findAllQuestionByUserId(page, requestDto, user.getUserId());
+    public ResponseEntity<PageResponseDto<?>> getMyQuestionList(QuestionSearchDto requestDto, int page, int size, User user) {
+        Page<QuestionResponseDto> response = questionService.findQuestionPageForUser(page, size, requestDto, user);
         return ResponseEntity.ok(PageResponseDto.of(response, response.getContent(), Result.ok()));
     }
 
