@@ -1,6 +1,7 @@
 package com.monthlyib.server.domain.tutoring.entity;
 
 import com.monthlyib.server.audit.Auditable;
+import com.monthlyib.server.constant.TutoringEmailRecipientMode;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -26,11 +27,18 @@ public class TutoringEmailTemplate extends Auditable {
     @Column(nullable = false)
     private boolean active;
 
+    @Enumerated(EnumType.STRING)
+    private TutoringEmailRecipientMode recipientMode;
+
+    private String recipientEmail;
+
     public static TutoringEmailTemplate createDefault() {
         return TutoringEmailTemplate.builder()
                 .subject("튜터링 신청이 승인되었습니다.")
                 .bodyTemplate("{nickName}님, 신청하신 튜터링이 승인되었습니다.\n예약 일시: {date} {time}")
                 .active(true)
+                .recipientMode(TutoringEmailRecipientMode.BOTH)
+                .recipientEmail("monthlyib@gmail.com")
                 .build();
     }
 }

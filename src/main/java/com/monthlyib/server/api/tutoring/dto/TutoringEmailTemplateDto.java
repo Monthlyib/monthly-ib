@@ -1,5 +1,6 @@
 package com.monthlyib.server.api.tutoring.dto;
 
+import com.monthlyib.server.constant.TutoringEmailRecipientMode;
 import com.monthlyib.server.domain.tutoring.entity.TutoringEmailTemplate;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -16,6 +17,8 @@ public class TutoringEmailTemplateDto {
     private String subject;
     private String bodyTemplate;
     private boolean active;
+    private TutoringEmailRecipientMode recipientMode;
+    private String recipientEmail;
     private LocalDateTime createAt;
     private LocalDateTime updateAt;
 
@@ -25,6 +28,8 @@ public class TutoringEmailTemplateDto {
         dto.subject = entity.getSubject();
         dto.bodyTemplate = entity.getBodyTemplate();
         dto.active = entity.isActive();
+        dto.recipientMode = entity.getRecipientMode();
+        dto.recipientEmail = entity.getRecipientEmail();
         dto.createAt = entity.getCreateAt();
         dto.updateAt = entity.getUpdateAt();
         return dto;

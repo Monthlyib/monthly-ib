@@ -1,6 +1,7 @@
 package com.monthlyib.server.event;
 
 import com.monthlyib.server.auth.service.VerifyNumService;
+import com.monthlyib.server.constant.TutoringEmailRecipientMode;
 import com.monthlyib.server.domain.tutoring.entity.TutoringEmailTemplate;
 import com.monthlyib.server.domain.tutoring.service.TutoringEmailTemplateService;
 import com.monthlyib.server.domain.user.service.UserService;
@@ -16,6 +17,8 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Component;
 
 import java.util.Random;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @EnableAsync
 @Configuration
@@ -78,11 +81,11 @@ public class UserMailEventListener {
     @EventListener
     public void tutoringConfirm(UserTutoringConfirmEvent event) throws Exception {
         try {
-            String[] to = new String[]{event.getEmail()};
             TutoringEmailTemplate template = tutoringEmailTemplateService.getActiveEntity();
+            String[] to = buildTutoringRecipients(template, event);
             String subject = template.getSubject();
             String message = buildMessage(template.getBodyTemplate(), event);
-            log.info("Sending tutoring confirm email to: {}", to[0]);
+            log.info("Sending tutoring confirm email to: {}", String.join(", ", to));
             emailSender.sendEmail(to, subject, message, registrationTemplateName);
         } catch (MailSendException e) {
             e.printStackTrace();
@@ -113,6 +116,31 @@ public class UserMailEventListener {
             e.printStackTrace();
             log.error("MailSendException: Rollback for User tutoringConfirm:");
         }
+    }
+
+    private String[] buildTutoringRecipients(TutoringEmailTemplate template, UserTutoringConfirmEvent event) {
+        Set<String> recipients = new LinkedHashSet<>();
+        TutoringEmailRecipientMode mode = template.getRecipientMode() == null
+                ? TutoringEmailRecipientMode.BOTH
+                : template.getRecipientMode();
+        String fixedRecipient = template.getRecipientEmail() == null || template.getRecipientEmail().isBlank()
+                ? "monthlyib@gmail.com"
+                : template.getRecipientEmail().trim();
+
+        if (mode == TutoringEmailRecipientMode.USER || mode == TutoringEmailRecipientMode.BOTH) {
+            if (event.getEmail() != null && !event.getEmail().isBlank()) {
+                recipients.add(event.getEmail().trim());
+            }
+        }
+        if (mode == TutoringEmailRecipientMode.FIXED || mode == TutoringEmailRecipientMode.BOTH) {
+            recipients.add(fixedRecipient);
+        }
+
+        if (recipients.isEmpty()) {
+            recipients.add(fixedRecipient);
+        }
+
+        return recipients.toArray(String[]::new);
     }
 
     private static String numberGen(int len, int dupCd ) {
