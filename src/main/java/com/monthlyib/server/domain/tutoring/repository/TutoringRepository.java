@@ -24,4 +24,8 @@ public interface TutoringRepository {
     Tutoring save(Tutoring tutoring);
 
     void delete(Long tutoringId);
+
+    long countByRequestUserId(Long requestUserId);
+
+    long countByRequestUserIdAndStatus(Long requestUserId, TutoringStatus status);
 }

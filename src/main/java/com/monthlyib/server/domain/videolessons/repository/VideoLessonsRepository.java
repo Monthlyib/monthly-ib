@@ -55,6 +55,8 @@ public interface VideoLessonsRepository {
 
     Page<VideoLessonsUser> findAllVideoLessonsUser(Long userId, Pageable pageable);
 
+    List<VideoLessonsUser> findAllVideoLessonsUser(Long userId);
+
     List<VideoLessonsProgress> findAllVideoLessonsProgress(Long userId, Long videoLessonsId);
 
     List<VideoThumbnail> findVideoThumbnailByVideoLessonsId(Long videoLessonsId);

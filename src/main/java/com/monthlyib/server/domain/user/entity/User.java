@@ -14,6 +14,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -87,6 +88,8 @@ public class User extends Auditable {
     @Builder.Default
     @Column(nullable = false)
     private Long sessionVersion = 0L;
+
+    private LocalDateTime lastAccessAt;
 
 
     /*
@@ -207,6 +210,10 @@ public class User extends Auditable {
         this.privacyTermsCheck = Optional.ofNullable(dto.isPrivacyTermsCheck()).orElse(this.privacyTermsCheck);
         this.marketingTermsCheck = Optional.ofNullable(dto.isMarketingTermsCheck()).orElse(this.marketingTermsCheck);
         return this;
+    }
+
+    public void touchLastAccessAt() {
+        this.lastAccessAt = LocalDateTime.now();
     }
 
 }

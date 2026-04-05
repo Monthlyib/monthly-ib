@@ -26,6 +26,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -111,6 +112,12 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
         if (tokenSessionVersion != currentSessionVersion) {
             throw new ServiceLogicException(ErrorCode.SESSION_EXPIRED_BY_NEW_LOGIN);
+        }
+
+        LocalDateTime refreshThreshold = LocalDateTime.now().minusMinutes(5);
+        if (user.getLastAccessAt() == null || user.getLastAccessAt().isBefore(refreshThreshold)) {
+            user.touchLastAccessAt();
+            userRepository.save(user);
         }
     }
 }

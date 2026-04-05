@@ -3,6 +3,7 @@ package com.monthlyib.server.domain.question.repository;
 import com.monthlyib.server.api.question.dto.AnswerResponseDto;
 import com.monthlyib.server.api.question.dto.QuestionResponseDto;
 import com.monthlyib.server.api.question.dto.QuestionSearchDto;
+import com.monthlyib.server.constant.QuestionStatus;
 import com.monthlyib.server.domain.answer.entity.Answer;
 import com.monthlyib.server.domain.answer.entity.QAnswer;
 import com.monthlyib.server.domain.question.entity.Question;
@@ -30,6 +31,10 @@ public interface QuestionRepository {
     void deleteQuestion(Long questionId);
 
     void deleteAnswer(Long answerId);
+
+    long countByAuthorId(Long authorId);
+
+    long countByAuthorIdAndStatus(Long authorId, QuestionStatus status);
 
 
 }

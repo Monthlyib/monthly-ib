@@ -6,6 +6,7 @@ import com.monthlyib.server.api.monthlyib.controller.MonthlyIbApiControllerIfs;
 import com.monthlyib.server.api.user.dto.UserPatchRequestDto;
 import com.monthlyib.server.api.user.dto.UserResponseDto;
 import com.monthlyib.server.api.user.dto.UserSocialPatchRequestDto;
+import com.monthlyib.server.api.user.dto.UserUsageResponseDto;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.dto.ErrorResponse;
 import com.monthlyib.server.dto.PageResponseDto;
@@ -33,6 +34,7 @@ public interface UserApiControllerIfs {
 
     class UserResponse extends ResponseDto<UserResponseDto> {}
     class UserListResponse extends PageResponseDto<List<UserResponseDto>> {}
+    class UserUsageResponse extends ResponseDto<UserUsageResponseDto> {}
 
     @Operation(summary = "전체 회원 정보 요청(관리자)", description = "전체 회원 리스트 요청")
     @ApiResponses({
@@ -63,6 +65,22 @@ public interface UserApiControllerIfs {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
     })
     ResponseEntity<ResponseDto<?>> getUser(
+            @PathVariable @Parameter(description = "회원의 식별자", required = true) Long userId,
+            @UserSession @Parameter(hidden = true) User user
+    );
+
+    @Operation(summary = "회원 사용량 정보 요청(관리자)", description = "특정 회원의 강의 진도, 질문/튜터링 사용량, 마지막 접속 시간 조회")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "정상 응답",
+                    content = {@Content(mediaType = "application/json"
+                            , schema = @Schema(implementation = UserUsageResponse.class)
+                    )}),
+            @ApiResponse(responseCode = "400", description = "BAD REQUEST",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL SERVER ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+    })
+    ResponseEntity<ResponseDto<?>> getUserUsage(
             @PathVariable @Parameter(description = "회원의 식별자", required = true) Long userId,
             @UserSession @Parameter(hidden = true) User user
     );

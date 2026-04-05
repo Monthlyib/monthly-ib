@@ -3,9 +3,11 @@ package com.monthlyib.server.api.user.controller;
 import com.monthlyib.server.api.user.dto.UserPatchRequestDto;
 import com.monthlyib.server.api.user.dto.UserResponseDto;
 import com.monthlyib.server.api.user.dto.UserSocialPatchRequestDto;
+import com.monthlyib.server.api.user.dto.UserUsageResponseDto;
 import com.monthlyib.server.constant.ErrorCode;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.user.service.UserService;
+import com.monthlyib.server.domain.user.service.UserUsageService;
 import com.monthlyib.server.dto.PageResponseDto;
 import com.monthlyib.server.dto.ResponseDto;
 import com.monthlyib.server.dto.Result;
@@ -26,6 +28,7 @@ import java.util.Map;
 public class UserApiController implements UserApiControllerIfs{
 
     private final UserService userService;
+    private final UserUsageService userUsageService;
 
     @Override
     @GetMapping("/list")
@@ -38,6 +41,13 @@ public class UserApiController implements UserApiControllerIfs{
     @GetMapping("/{userId}")
     public ResponseEntity<ResponseDto<?>> getUser(Long userId, User user) {
         UserResponseDto res = userService.findUserById(userId, user);
+        return ResponseEntity.ok(ResponseDto.of(res, Result.ok()));
+    }
+
+    @Override
+    @GetMapping("/{userId}/usage")
+    public ResponseEntity<ResponseDto<?>> getUserUsage(Long userId, User user) {
+        UserUsageResponseDto res = userUsageService.findUsage(userId, user);
         return ResponseEntity.ok(ResponseDto.of(res, Result.ok()));
     }
 

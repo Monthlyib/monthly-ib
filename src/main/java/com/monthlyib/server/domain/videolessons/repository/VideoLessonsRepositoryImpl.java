@@ -211,6 +211,11 @@ public class VideoLessonsRepositoryImpl extends QuerydslRepositorySupport implem
     }
 
     @Override
+    public List<VideoLessonsUser> findAllVideoLessonsUser(Long userId) {
+        return videoLessonsUserJpaRepository.findAllByUserId(userId);
+    }
+
+    @Override
     public List<VideoLessonsProgress> findAllVideoLessonsProgress(Long userId, Long videoLessonsId) {
         return videoLessonsProgressJpaRepository.findAllByUserIdAndVideoLessonsId(userId, videoLessonsId);
     }

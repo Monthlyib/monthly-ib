@@ -132,6 +132,16 @@ public class QuestionRepositoryImpl extends QuerydslRepositorySupport implements
         answerJpaRepository.deleteById(answerId);
     }
 
+    @Override
+    public long countByAuthorId(Long authorId) {
+        return questionJpaRepository.countByAuthorId(authorId);
+    }
+
+    @Override
+    public long countByAuthorIdAndStatus(Long authorId, QuestionStatus status) {
+        return questionJpaRepository.countByAuthorIdAndQuestionStatus(authorId, status);
+    }
+
 
     private JPQLQuery<QuestionResponseDto> getQuestionJpqlQuery() {
         return from(question)

@@ -74,6 +74,16 @@ public class TutoringRepositoryImpl extends QuerydslRepositorySupport implements
         tutoringJpaRepository.deleteById(tutoringId);
     }
 
+    @Override
+    public long countByRequestUserId(Long requestUserId) {
+        return tutoringJpaRepository.countByRequestUserId(requestUserId);
+    }
+
+    @Override
+    public long countByRequestUserIdAndStatus(Long requestUserId, TutoringStatus status) {
+        return tutoringJpaRepository.countByRequestUserIdAndTutoringStatus(requestUserId, status);
+    }
+
     private JPQLQuery<TutoringResponseDto> getTutoringResponseQuery() {
         return from(tutoring)
                 .select(

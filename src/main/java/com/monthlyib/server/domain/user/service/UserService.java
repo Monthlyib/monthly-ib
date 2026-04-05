@@ -269,6 +269,8 @@ public class UserService {
             if (refreshSessionVersion != currentSessionVersion) {
                 throw new ServiceLogicException(ErrorCode.SESSION_EXPIRED_BY_NEW_LOGIN);
             }
+            user.touchLastAccessAt();
+            userRepository.save(user);
             Token token = tokenizer.delegateToken(user);
             return LoginApiResponseDto.of(token, user);
         } catch (ServiceLogicException e) {
@@ -344,6 +346,7 @@ public class UserService {
     private User rotateUserSession(User user) {
         long currentSessionVersion = user.getSessionVersion() == null ? 0L : user.getSessionVersion();
         user.setSessionVersion(currentSessionVersion + 1L);
+        user.touchLastAccessAt();
         return userRepository.save(user);
     }
 
