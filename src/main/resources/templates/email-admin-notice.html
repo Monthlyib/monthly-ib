@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${subject}">Monthly IB 관리자 안내</title>
+</head>
+<body style="margin:0;padding:0;background:#f6f3fb;font-family:Arial,sans-serif;color:#241b34;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f6f3fb;padding:32px 16px;">
+    <tr>
+        <td align="center">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;background:#ffffff;border-radius:20px;overflow:hidden;border:1px solid #ebe3f4;">
+                <tr>
+                    <td style="padding:32px 32px 24px;background:linear-gradient(135deg,#51346c 0%,#7a56a0 100%);color:#ffffff;">
+                        <div style="font-size:13px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;opacity:0.85;">Monthly IB</div>
+                        <h1 style="margin:14px 0 0;font-size:28px;line-height:1.35;font-weight:700;" th:text="${subject}">관리자 안내</h1>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:32px;">
+                        <p style="margin:0 0 16px;font-size:16px;line-height:1.7;">
+                            <strong th:text="${recipientName}">회원님</strong>님께 안내드립니다.
+                        </p>
+                        <div style="padding:20px 22px;border-radius:16px;background:#fbf9ff;border:1px solid #ece3f5;font-size:16px;line-height:1.8;white-space:pre-line;" th:text="${message}">
+                            안내 내용이 여기에 표시됩니다.
+                        </div>
+                        <p style="margin:24px 0 0;font-size:14px;line-height:1.7;color:#7a708d;">
+                            문의가 필요하시면 <a href="mailto:monthlyib@gmail.com" style="color:#51346c;">monthlyib@gmail.com</a> 으로 연락해주세요.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

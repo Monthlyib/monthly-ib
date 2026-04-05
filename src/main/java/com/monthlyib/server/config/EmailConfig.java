@@ -10,7 +10,6 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
 
 
 import java.util.Properties;
@@ -40,7 +39,7 @@ public class EmailConfig {
     @Primary
     @Bean
     public EmailSendable templateEmailSendable(TemplateEngine templateEngine) {
-        return new TemplateEmailSendable(javaMailSender(), templateEngine, new Context());
+        return new TemplateEmailSendable(javaMailSender(), templateEngine);
     }
 
     @Bean

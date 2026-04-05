@@ -54,7 +54,7 @@ public class ErrorResponse {
     }
 
     public static ErrorResponse of(ErrorCode errorCode, String message) {
-        return new ErrorResponse(errorCode.getStatus(), errorCode.getMessage(), errorCode.getCode());
+        return new ErrorResponse(errorCode.getStatus(), message, errorCode.getCode());
     }
 
     public static ErrorResponse of(HttpStatus status) {
@@ -116,4 +116,3 @@ public class ErrorResponse {
         }
     }
 }
-

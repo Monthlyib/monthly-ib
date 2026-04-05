@@ -57,6 +57,8 @@ public class SecConfig {
                 .cors(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests((authorizeHttpRequests) -> authorizeHttpRequests
                         .requestMatchers(new AntPathRequestMatcher("/open-api/**")).permitAll()
+                        .requestMatchers(new AntPathRequestMatcher("/api/mail")).hasAnyRole("ADMIN")
+                        .requestMatchers(new AntPathRequestMatcher("/api/mail/**")).hasAnyRole("ADMIN")
                         .requestMatchers(new AntPathRequestMatcher("/api/admin/**")).hasAnyRole("ADMIN")
                         .requestMatchers(new AntPathRequestMatcher("/api/tutoring/email-template/**")).hasAnyRole("ADMIN")
                         .requestMatchers(new AntPathRequestMatcher("/api/**")).hasAnyRole( "USER")
