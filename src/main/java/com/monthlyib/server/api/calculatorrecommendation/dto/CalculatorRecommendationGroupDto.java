@@ -11,11 +11,13 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CalculatorRecommendationConfigDto {
+public class CalculatorRecommendationGroupDto {
 
-    private List<CalculatorRecommendationGroupDto> groups;
+    private String key;
 
-    private List<CalculatorRecommendationBandDto> scoreBands;
+    private String label;
 
-    private List<CalculatorRecommendationCountryDto> countries;
+    private Integer maxSelectableCount;
+
+    private List<CalculatorRecommendationGroupSubjectDto> subjects;
 }
