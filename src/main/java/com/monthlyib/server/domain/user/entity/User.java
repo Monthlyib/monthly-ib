@@ -4,7 +4,6 @@ package com.monthlyib.server.domain.user.entity;
 import com.monthlyib.server.api.user.dto.UserPatchRequestDto;
 import com.monthlyib.server.api.user.dto.UserSocialPatchRequestDto;
 import com.monthlyib.server.audit.Auditable;
-import com.monthlyib.server.auth.util.CustomAuthorityUtils;
 import com.monthlyib.server.constant.Authority;
 import com.monthlyib.server.constant.LoginType;
 import com.monthlyib.server.constant.UserStatus;
@@ -127,9 +126,15 @@ public class User extends Auditable {
     @ElementCollection(fetch = FetchType.EAGER)
     private List<String> roles = new ArrayList<>();
 
+    public void syncRolesToAuthority() {
+        this.roles = this.authority == Authority.ADMIN
+                ? new ArrayList<>(Authority.ADMIN.getStringRole())
+                : new ArrayList<>(Authority.USER.getStringRole());
+    }
+
     public static User createEmptyUser(String email, String loginType) {
         String uuid = UUID.randomUUID().toString().substring(10);
-        return User.builder()
+        User user = User.builder()
                 .username(uuid)
                 .nickName(uuid)
                 .password(uuid)
@@ -143,18 +148,20 @@ public class User extends Auditable {
                 .userStatus(UserStatus.WAIT_INFO)
                 .loginType(LoginType.valueOf(loginType))
                 .sessionVersion(0L)
-                .roles(CustomAuthorityUtils.createUserRoles(uuid))
                 .authority(Authority.USER)
+                .roles(new ArrayList<>(Authority.USER.getStringRole()))
                 .videoLessonsIdList(new ArrayList<>())
                 .subscriptionId(0L)
                 .subscriptionPrice(BigDecimal.ZERO)
                 .remainTutoringCount(0)
                 .remainQuestionCount(0)
                 .build();
+        user.syncRolesToAuthority();
+        return user;
     }
 
     public static User createUser(UserPostRequestDto dto) {
-        return User.builder()
+        User user = User.builder()
                 .username(dto.getUsername())
                 .nickName(dto.getNickName())
                 .password(dto.getPassword())
@@ -168,7 +175,7 @@ public class User extends Auditable {
                 .userStatus(UserStatus.ACTIVE)
                 .loginType(LoginType.BASIC)
                 .sessionVersion(0L)
-                .roles(CustomAuthorityUtils.createUserRoles(dto.getUsername()))
+                .roles(new ArrayList<>(Authority.USER.getStringRole()))
                 .videoLessonsIdList(new ArrayList<>())
                 .termsOfUseCheck(dto.isTermsOfUseCheck())
                 .privacyTermsCheck(dto.isPrivacyTermsCheck())
@@ -179,6 +186,8 @@ public class User extends Auditable {
                 .remainTutoringCount(0)
                 .remainQuestionCount(0)
                 .build();
+        user.syncRolesToAuthority();
+        return user;
     }
 
     public User updateUser(UserPatchRequestDto dto) {
@@ -194,6 +203,7 @@ public class User extends Auditable {
         this.authority = Optional.ofNullable(dto.getAuthority()).orElse(this.authority);
         this.marketingTermsCheck = Optional.ofNullable(dto.isMarketingTermsCheck()).orElse(this.marketingTermsCheck);
         this.memo  = Optional.ofNullable(dto.getMemo()).orElse(this.memo);
+        syncRolesToAuthority();
         return this;
     }
 

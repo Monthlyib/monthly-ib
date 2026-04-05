@@ -3,6 +3,7 @@ package com.monthlyib.server.auth.jwt;
 
 import com.monthlyib.server.auth.service.RefreshService;
 import com.monthlyib.server.auth.token.Token;
+import com.monthlyib.server.constant.Authority;
 import com.monthlyib.server.domain.user.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -91,7 +92,9 @@ public class JwtTokenizer {
         claims.put("userId", user.getUserId());
         claims.put("username", user.getUsername());
         claims.put("email", user.getEmail());
-        claims.put("roles", user.getRoles());
+        claims.put("roles", user.getAuthority() == Authority.ADMIN
+                ? Authority.ADMIN.getStringRole()
+                : Authority.USER.getStringRole());
         claims.put("sessionVersion", user.getSessionVersion() == null ? 0L : user.getSessionVersion());
         String subject = user.getUsername();
         String base64SecretKey = encodeBase64SecretKey(getSecretKey());

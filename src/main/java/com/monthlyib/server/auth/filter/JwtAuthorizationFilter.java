@@ -50,8 +50,8 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
         try {
             log.debug("### Access Process [API Request]");
             Map<String, Object> claims = getHeaderClaims(request);
-            verifyCurrentSession(claims);
-            setAuthenticationToContext(claims);
+            User user = verifyCurrentSession(claims);
+            setAuthenticationToContext(claims, user);
             RequestAttributes requestContext = Objects.requireNonNull(RequestContextHolder.getRequestAttributes());
             requestContext.setAttribute("userId", claims.get("userId"), RequestAttributes.SCOPE_REQUEST);
         } catch (ExpiredJwtException ee) {
@@ -85,12 +85,11 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
         return jwtTokenizer.getClaims(jwt, base64EncodedSecretKey).getBody();
     }
 
-    private void setAuthenticationToContext(Map<String, Object> claims) {
+    private void setAuthenticationToContext(Map<String, Object> claims, User user) {
         String username = (String) claims.get("username");
-        List<String> rolesList = (List<String>) claims.get("roles");
-        if (username.equals("admin")) {
-            rolesList = Authority.ADMIN.getStringRole();
-        }
+        List<String> rolesList = user.getAuthority() == Authority.ADMIN
+                ? Authority.ADMIN.getStringRole()
+                : Authority.USER.getStringRole();
         List<GrantedAuthority> roles = authorityUtils.createAuthorities(rolesList);
         Authentication authentication =
                 new UsernamePasswordAuthenticationToken(username, null, roles);
@@ -98,7 +97,7 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
-    private void verifyCurrentSession(Map<String, Object> claims) {
+    private User verifyCurrentSession(Map<String, Object> claims) {
         Object userId = claims.get("userId");
         if (userId == null) {
             throw new ServiceLogicException(ErrorCode.ACCESS_DENIED_REQUEST_API);
@@ -119,5 +118,7 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
             user.touchLastAccessAt();
             userRepository.save(user);
         }
+
+        return user;
     }
 }

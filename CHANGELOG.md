@@ -13,6 +13,7 @@
 ### Changed
 
 - 헤더 메뉴 설정이 비어 있을 때 기존 운영 중 하드코드 GNB를 fallback 데이터로 sanitize 하도록 정리했습니다.
+- JWT admin 권한 판정을 사용자 `authority` 기준으로 통일해 `/api/admin/**` 요청이 stale `roles` 값 때문에 403 되지 않도록 수정했습니다.
 - 소셜 온보딩용 `/api/user/social/{userId}`가 요청자 본인 또는 관리자만 수정할 수 있도록 권한 검증과 필수 입력 검증을 보강했습니다.
 - 소셜 로그인 HTTP 클라이언트가 OAuth access token 원문을 서버 로그에 남기지 않도록 정리했습니다.
 
