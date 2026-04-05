@@ -61,7 +61,7 @@ public class UserApiController implements UserApiControllerIfs{
     @Override
     @PatchMapping("/social/{userId}")
     public ResponseEntity<ResponseDto<?>> patchSocialUser(Long userId, UserSocialPatchRequestDto requestDto, User user) {
-        UserResponseDto res = userService.updateSocialUser(userId, requestDto);
+        UserResponseDto res = userService.updateSocialUser(userId, requestDto, user);
         return ResponseEntity.ok(ResponseDto.of(res, Result.ok()));
     }
 

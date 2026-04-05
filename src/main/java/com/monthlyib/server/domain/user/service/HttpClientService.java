@@ -32,7 +32,6 @@ public class HttpClientService {
         try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
             if (loginType.equals("KAKAO")) {
                 log.info("Kakao Login Request");
-                log.info("Kakao Login Token = {}", dto.getOauthAccessToken());
                 requestUrl = createKakaoLoginRequestUrl();
                 HttpGet httpGet = new HttpGet(requestUrl);
                 httpGet.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
@@ -40,7 +39,6 @@ public class HttpClientService {
                 return (String) httpclient.execute(httpGet, getLoginHandler(loginType));
             } else if (loginType.equals("NAVER")) {
                 log.info("Naver Login Request");
-                log.info("Naver Login Token = {}", dto.getOauthAccessToken());
                 requestUrl = createNaverLoginRequestUrl();
                 HttpGet httpGet = new HttpGet(requestUrl);
                 httpGet.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
@@ -48,7 +46,6 @@ public class HttpClientService {
                 return (String) httpclient.execute(httpGet, getLoginHandler(loginType));
             } else {
                 log.info("Google Login Request");
-                log.info("Google Login Token = {}", dto.getOauthAccessToken());
                 requestUrl = createGoogleLoginRequestUrl(dto.getOauthAccessToken());
                 HttpGet httpGet = new HttpGet(requestUrl);
                 return (String) httpclient.execute(httpGet, getLoginHandler(loginType));
@@ -76,7 +73,6 @@ public class HttpClientService {
                 } else {
                     JsonElement googleElement = JsonParser.parseString(res);
                     String email = googleElement.getAsJsonObject().get("email").getAsString();
-                    log.info("Google Email Account = {}", email);
                     return email;
                 }
 

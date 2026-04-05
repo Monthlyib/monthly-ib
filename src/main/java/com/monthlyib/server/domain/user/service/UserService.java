@@ -4,6 +4,7 @@ import com.monthlyib.server.api.user.dto.UserPatchRequestDto;
 import com.monthlyib.server.api.user.dto.UserResponseDto;
 import com.monthlyib.server.api.user.dto.UserSocialPatchRequestDto;
 import com.monthlyib.server.auth.dto.OauthInfo;
+import com.monthlyib.server.auth.service.GoogleAuthService;
 import com.monthlyib.server.auth.jwt.JwtTokenizer;
 import com.monthlyib.server.auth.service.NaverAuthService;
 import com.monthlyib.server.auth.service.RefreshService;
@@ -55,6 +56,8 @@ public class UserService {
 
     private final NaverAuthService naverAuthService;
 
+    private final GoogleAuthService googleAuthService;
+
     private final FileService fileService;
 
     public Page<UserResponseDto> findAll(int page, User user) {
@@ -84,6 +87,13 @@ public class UserService {
             SocialLoginDto socialLoginDto,
             HttpServletResponse response
     ) {
+        if (LoginType.GOOGLE.name().equalsIgnoreCase(socialLoginDto.getLoginType())) {
+            throw new ServiceLogicException(
+                    ErrorCode.BAD_REQUEST,
+                    "Google 로그인은 전용 인증 플로우를 사용해야 합니다."
+            );
+        }
+
         String email = httpClientService.generateLoginRequest(socialLoginDto);
         try {
             User user = createOrVerifiedUserByEmailAndLoginType(email, socialLoginDto.getLoginType());
@@ -103,6 +113,25 @@ public class UserService {
 
     public LoginApiResponseDto loginSocialNaver(NaverLoginRequest naverLoginRequest, HttpServletResponse response) {
         OauthInfo info = naverAuthService.getNaverInfo(naverLoginRequest);
+        String email = info.getEmail();
+        try {
+            User user = createOrVerifiedUserByEmailAndLoginType(email, info.getLoginType().name());
+            LoginApiResponseDto loginResponse = issueLoginResponse(user);
+            response.setHeader("userId", String.valueOf(user.getUserId()));
+            response.setHeader("userStatus", user.getUserStatus().name());
+            return loginResponse;
+        } catch (ServiceLogicException e) {
+            if (e.getErrorCode().equals(ErrorCode.USER_EXIST)) {
+                User user = userRepository.findByEmail(email)
+                        .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
+                response.setHeader("userLoginType", user.getLoginType().name());
+            }
+            throw e;
+        }
+    }
+
+    public LoginApiResponseDto loginSocialGoogle(GoogleLoginRequest googleLoginRequest, HttpServletResponse response) {
+        OauthInfo info = googleAuthService.getGoogleInfo(googleLoginRequest);
         String email = info.getEmail();
         try {
             User user = createOrVerifiedUserByEmailAndLoginType(email, info.getLoginType().name());
@@ -143,8 +172,13 @@ public class UserService {
     }
 
 
-    public UserResponseDto updateSocialUser(Long userId, UserSocialPatchRequestDto dto) {
+    public UserResponseDto updateSocialUser(Long userId, UserSocialPatchRequestDto dto, User requestUser) {
+        verifyAdminOrSelf(requestUser, userId);
         User findUser = findUserEntity(userId);
+        verifySocialPatchRequest(dto);
+        if (!findUser.getUsername().equals(dto.getUsername())) {
+            verifyUsername(dto.getUsername());
+        }
         User updateUser = findUser.updateSocialUser(dto);
         updateUser.setUserStatus(UserStatus.ACTIVE);
         return UserResponseDto.of(userRepository.save(updateUser), firstUserImage(userId));
@@ -238,6 +272,23 @@ public class UserService {
     private void verifyAdminOrSelf(User user, Long userId) {
         if (!user.getAuthority().equals(Authority.ADMIN) && !user.getUserId().equals(userId)) {
             throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+        }
+    }
+
+    private void verifySocialPatchRequest(UserSocialPatchRequestDto dto) {
+        if (dto == null
+                || isBlank(dto.getUsername())
+                || isBlank(dto.getNickName())
+                || isBlank(dto.getBirth())
+                || isBlank(dto.getSchool())
+                || isBlank(dto.getGrade())
+                || isBlank(dto.getAddress())
+                || isBlank(dto.getCountry())) {
+            throw new ServiceLogicException(ErrorCode.BAD_REQUEST, "필수 회원 정보가 누락되었습니다.");
+        }
+
+        if (!dto.isTermsOfUseCheck() || !dto.isPrivacyTermsCheck()) {
+            throw new ServiceLogicException(ErrorCode.BAD_REQUEST, "필수 약관 동의가 필요합니다.");
         }
     }
 
@@ -348,6 +399,10 @@ public class UserService {
         user.setSessionVersion(currentSessionVersion + 1L);
         user.touchLastAccessAt();
         return userRepository.save(user);
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
 

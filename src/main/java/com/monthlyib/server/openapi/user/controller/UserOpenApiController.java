@@ -51,6 +51,14 @@ public class UserOpenApiController implements UserOpenApiControllerIfs {
     }
 
     @Override
+    @PostMapping("/login/google")
+    public ResponseEntity<ResponseDto<?>> loginSocialGoogle(GoogleLoginRequest loginDto, HttpServletResponse servletResponse) {
+        log.info("# Verify Social GOOGLE Login User");
+        LoginApiResponseDto response = userService.loginSocialGoogle(loginDto, servletResponse);
+        return ResponseEntity.ok().body(ResponseDto.of(response, Result.ok()));
+    }
+
+    @Override
     @PostMapping("/reissue-token/{userId}")
     public ResponseEntity<ResponseDto<?>> refreshToken(
             @PathVariable Long userId,

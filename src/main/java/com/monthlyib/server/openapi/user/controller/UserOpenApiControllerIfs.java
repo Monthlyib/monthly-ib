@@ -72,6 +72,23 @@ public interface UserOpenApiControllerIfs {
             HttpServletResponse response
     );
 
+    @Operation(summary = "구글 소셜 로그인 / 회원가입 요청", description = "Authorization Code를 교환해 로그인 응답을 반환합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "정상 응답", content = {
+                    @Content(mediaType = "application/json", schema = @Schema(implementation = LoginResponse.class))
+            }),
+            @ApiResponse(responseCode = "400", description = "BAD REQUEST",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "ACCESS DENIED",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL SERVER ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+    })
+    ResponseEntity<ResponseDto<?>> loginSocialGoogle(
+            @RequestBody GoogleLoginRequest loginDto,
+            HttpServletResponse response
+    );
+
     @Operation(summary = "토큰 재발급", description = "바디 데이터 응답 확인")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "정상 응답", content = {

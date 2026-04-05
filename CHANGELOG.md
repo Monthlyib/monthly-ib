@@ -2,6 +2,18 @@
 
 백엔드 주요 변경 이력을 날짜 기준으로 기록합니다.
 
+## 2026-04-05
+
+### Added
+
+- Google authorization code를 서버에서 교환하는 `POST /open-api/login/google` API와 Google OAuth code exchange 서비스를 추가했습니다.
+- Google OAuth 환경변수 예시를 위한 백엔드 `.env.example` 파일을 추가했습니다.
+
+### Changed
+
+- 소셜 온보딩용 `/api/user/social/{userId}`가 요청자 본인 또는 관리자만 수정할 수 있도록 권한 검증과 필수 입력 검증을 보강했습니다.
+- 소셜 로그인 HTTP 클라이언트가 OAuth access token 원문을 서버 로그에 남기지 않도록 정리했습니다.
+
 ## 2026-04-04
 
 ### Added
