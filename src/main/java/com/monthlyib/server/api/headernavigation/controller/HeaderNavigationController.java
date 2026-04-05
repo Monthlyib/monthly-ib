@@ -1,5 +1,6 @@
 package com.monthlyib.server.api.headernavigation.controller;
 
+import com.monthlyib.server.annotation.UserSession;
 import com.monthlyib.server.api.headernavigation.dto.HeaderNavigationConfigDto;
 import com.monthlyib.server.domain.headernavigation.service.HeaderNavigationService;
 import com.monthlyib.server.domain.user.entity.User;
@@ -22,12 +23,12 @@ public class HeaderNavigationController {
     }
 
     @GetMapping("/api/admin/header-navigation")
-    public ResponseEntity<ResponseDto<?>> getAdminConfig(User user) {
+    public ResponseEntity<ResponseDto<?>> getAdminConfig(@UserSession User user) {
         return ResponseEntity.ok(ResponseDto.of(headerNavigationService.getAdminConfig(user), Result.ok()));
     }
 
     @PutMapping("/api/admin/header-navigation")
-    public ResponseEntity<ResponseDto<?>> saveConfig(@RequestBody HeaderNavigationConfigDto dto, User user) {
+    public ResponseEntity<ResponseDto<?>> saveConfig(@RequestBody HeaderNavigationConfigDto dto, @UserSession User user) {
         return ResponseEntity.ok(ResponseDto.of(headerNavigationService.saveConfig(dto, user), Result.ok()));
     }
 }
