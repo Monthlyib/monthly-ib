@@ -149,5 +149,23 @@ public interface TutoringControllerIfs {
             @PathVariable @Parameter(description = "Tutoring 식별자", required = true) Long tutoringId,
             @UserSession @Parameter(hidden = true) User user
     );
+
+    @Operation(summary = "튜터링 Google Calendar 재동기화(관리자)", description = "현재 튜터링 상태 기준으로 Google Calendar 일정을 강제로 다시 동기화합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "정상 응답",
+                    content = {@Content(mediaType = "application/json"
+                            ,schema = @Schema(implementation = TutoringDetail.class)
+                    )}),
+            @ApiResponse(responseCode = "400", description = "BAD REQUEST",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "ACCESS DENIED",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL SERVER ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+    })
+    ResponseEntity<ResponseDto<?>> syncTutoringCalendar(
+            @PathVariable @Parameter(description = "Tutoring 식별자", required = true) Long tutoringId,
+            @UserSession @Parameter(hidden = true) User user
+    );
     // 특정 시간 혹은 날짜 비활성화
 }

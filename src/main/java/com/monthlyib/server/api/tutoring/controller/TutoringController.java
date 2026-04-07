@@ -1,17 +1,16 @@
 package com.monthlyib.server.api.tutoring.controller;
 
 
+import com.monthlyib.server.annotation.UserSession;
 import com.monthlyib.server.api.tutoring.dto.*;
 import com.monthlyib.server.domain.tutoring.service.TutoringService;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.dto.PageResponseDto;
 import com.monthlyib.server.dto.ResponseDto;
 import com.monthlyib.server.dto.Result;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -33,7 +32,10 @@ public class TutoringController implements TutoringControllerIfs{
 
     @Override
     @GetMapping("/date")
-    public ResponseEntity<ResponseDto<?>> getDateTutoringList(TutoringAdminSearchDto requestDto, User user) {
+    public ResponseEntity<ResponseDto<?>> getDateTutoringList(
+            TutoringAdminSearchDto requestDto,
+            @UserSession User user
+    ) {
         TutoringDetailResponseDto response = tutoringService.findTutoringDetail(requestDto, user);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
@@ -47,28 +49,52 @@ public class TutoringController implements TutoringControllerIfs{
 
     @Override
     @GetMapping("/user/{userId}")
-    public ResponseEntity<PageResponseDto<?>> getUserTutoringList(Long userId, TutoringUserSearchDto requestDto, User user) {
+    public ResponseEntity<PageResponseDto<?>> getUserTutoringList(
+            @PathVariable Long userId,
+            TutoringUserSearchDto requestDto,
+            @UserSession User user
+    ) {
         return ResponseEntity.ok(PageResponseDto.of(Result.ok()));
     }
 
     @Override
     @PostMapping
-    public ResponseEntity<ResponseDto<?>> postTutoring(TutoringPostRequestDto requestDto, User user) {
+    public ResponseEntity<ResponseDto<?>> postTutoring(
+            @RequestBody TutoringPostRequestDto requestDto,
+            @UserSession User user
+    ) {
         TutoringResponseDto response = tutoringService.createTutoring(requestDto, user);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 
     @Override
     @PatchMapping("/{tutoringId}")
-    public ResponseEntity<ResponseDto<?>> patchTutoring(Long tutoringId,TutoringPatchRequestDto requestDto, User user) {
+    public ResponseEntity<ResponseDto<?>> patchTutoring(
+            @PathVariable Long tutoringId,
+            @RequestBody TutoringPatchRequestDto requestDto,
+            @UserSession User user
+    ) {
         TutoringResponseDto response = tutoringService.updateTutoring(requestDto, user, tutoringId);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 
     @Override
     @DeleteMapping("/{tutoringId}")
-    public ResponseEntity<ResponseDto<?>> deleteNews(Long tutoringId, User user) {
+    public ResponseEntity<ResponseDto<?>> deleteNews(
+            @PathVariable Long tutoringId,
+            @UserSession User user
+    ) {
         tutoringService.deleteTutoring(tutoringId, user);
         return ResponseEntity.ok(ResponseDto.of(Result.ok()));
+    }
+
+    @Override
+    @PostMapping("/{tutoringId}/calendar-sync")
+    public ResponseEntity<ResponseDto<?>> syncTutoringCalendar(
+            @PathVariable Long tutoringId,
+            @UserSession User user
+    ) {
+        TutoringResponseDto response = tutoringService.syncCalendar(tutoringId, user);
+        return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 }

@@ -1,5 +1,6 @@
 package com.monthlyib.server.api.tutoring.dto;
 
+import com.monthlyib.server.constant.GoogleCalendarSyncStatus;
 import com.monthlyib.server.constant.TutoringStatus;
 import com.monthlyib.server.domain.tutoring.entity.Tutoring;
 import lombok.AllArgsConstructor;
@@ -34,6 +35,14 @@ public class TutoringResponseDto {
 
     private TutoringStatus tutoringStatus;
 
+    private GoogleCalendarSyncStatus googleCalendarSyncStatus;
+
+    private String googleCalendarHtmlLink;
+
+    private String googleCalendarLastError;
+
+    private LocalDateTime googleCalendarSyncedAt;
+
     private LocalDateTime createAt;
 
     private LocalDateTime updateAt;
@@ -49,6 +58,10 @@ public class TutoringResponseDto {
                 .requestUserNickName(tutoring.getRequestUserNickName())
                 .detail(tutoring.getDetail())
                 .tutoringStatus(tutoring.getTutoringStatus())
+                .googleCalendarSyncStatus(tutoring.getGoogleCalendarSyncStatus())
+                .googleCalendarHtmlLink(tutoring.getGoogleCalendarHtmlLink())
+                .googleCalendarLastError(tutoring.getGoogleCalendarLastError())
+                .googleCalendarSyncedAt(tutoring.getGoogleCalendarSyncedAt())
                 .createAt(tutoring.getCreateAt())
                 .updateAt(tutoring.getUpdateAt())
                 .build();

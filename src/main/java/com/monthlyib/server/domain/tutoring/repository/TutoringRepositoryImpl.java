@@ -98,6 +98,10 @@ public class TutoringRepositoryImpl extends QuerydslRepositorySupport implements
                                 tutoring.requestUserNickName,
                                 tutoring.detail,
                                 tutoring.tutoringStatus,
+                                tutoring.googleCalendarSyncStatus,
+                                tutoring.googleCalendarHtmlLink,
+                                tutoring.googleCalendarLastError,
+                                tutoring.googleCalendarSyncedAt,
                                 tutoring.createAt,
                                 tutoring.updateAt
                         )

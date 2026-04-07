@@ -3,6 +3,7 @@ package com.monthlyib.server.domain.tutoring.service;
 import com.monthlyib.server.api.tutoring.dto.*;
 import com.monthlyib.server.constant.Authority;
 import com.monthlyib.server.constant.ErrorCode;
+import com.monthlyib.server.constant.GoogleCalendarSyncStatus;
 import com.monthlyib.server.constant.TutoringStatus;
 import com.monthlyib.server.constant.TutoringTime;
 import com.monthlyib.server.domain.subscribe.service.SubscribeService;
@@ -12,8 +13,9 @@ import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.user.repository.UserRepository;
 import com.monthlyib.server.dto.PageResponseDto;
 import com.monthlyib.server.dto.Result;
+import com.monthlyib.server.event.TutoringCalendarDeleteEvent;
+import com.monthlyib.server.event.TutoringCalendarSyncEvent;
 import com.monthlyib.server.event.UserTutoringConfirmEvent;
-import com.monthlyib.server.event.UserVerificationEvent;
 import com.monthlyib.server.exception.ServiceLogicException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +30,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -42,6 +45,7 @@ public class TutoringService {
 
     private final UserRepository userRepository;
     private final SubscribeService subscribeService;
+    private final GoogleCalendarService googleCalendarService;
 
 
     public TutoringSimpleResponseDto findTutoringSimple(TutoringSearchDto dto) {
@@ -100,7 +104,9 @@ public class TutoringService {
                 .detail(dto.getDetail())
                 .build();
         Tutoring newTutoring = Tutoring.create(request, user.getUsername(), user.getNickName(), subscribeUserId);
+        prepareCalendarSyncState(newTutoring);
         Tutoring save = tutoringRepository.save(newTutoring);
+        queueCalendarSync(save);
         return TutoringResponseDto.of(save);
     }
 
@@ -110,10 +116,16 @@ public class TutoringService {
         if (!user.getAuthority().equals(Authority.ADMIN) && !findTutoring.getRequestUserId().equals(user.getUserId())) {
             throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
         }
+        boolean detailChanged = dto.getDetail() != null && !Objects.equals(dto.getDetail(), findTutoring.getDetail());
         findTutoring.setDetail(Optional.ofNullable(dto.getDetail()).orElse(findTutoring.getDetail()));
         TutoringStatus tutoringStatus = dto.getTutoringStatus();
         TutoringStatus previousStatus = findTutoring.getTutoringStatus();
         findTutoring.setTutoringStatus(Optional.ofNullable(tutoringStatus).orElse(findTutoring.getTutoringStatus()));
+        boolean statusChanged = tutoringStatus != null && tutoringStatus != previousStatus;
+        boolean shouldSyncCalendar = detailChanged || statusChanged;
+        if (shouldSyncCalendar) {
+            prepareCalendarSyncState(findTutoring);
+        }
         if (tutoringStatus == TutoringStatus.CANCEL && previousStatus != TutoringStatus.CANCEL) {
             subscribeService.restoreTutoringAccess(findTutoring.getSubscribeUserId());
         }
@@ -123,6 +135,9 @@ public class TutoringService {
             publisher.publishEvent(new UserTutoringConfirmEvent(this, findUser.getEmail(), findTutoring.getRequestUserNickName(), findTutoring.getDate(), findTutoring.getHour(), findTutoring.getMinute()));
         }
         Tutoring save = tutoringRepository.save(findTutoring);
+        if (shouldSyncCalendar) {
+            queueCalendarSync(save);
+        }
         return TutoringResponseDto.of(save);
     }
 
@@ -135,6 +150,41 @@ public class TutoringService {
         if (findTutoring.getTutoringStatus() != TutoringStatus.CANCEL) {
             subscribeService.restoreTutoringAccess(findTutoring.getSubscribeUserId());
         }
+        String googleCalendarEventId = findTutoring.getGoogleCalendarEventId();
         tutoringRepository.delete(tutoringId);
+        if (googleCalendarEventId != null && !googleCalendarEventId.isBlank()) {
+            publisher.publishEvent(new TutoringCalendarDeleteEvent(this, googleCalendarEventId));
+        }
+    }
+
+    public TutoringResponseDto syncCalendar(Long tutoringId, User user) {
+        if (user.getAuthority() != Authority.ADMIN) {
+            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+        }
+
+        Tutoring tutoring = tutoringRepository.findByTutoringId(tutoringId)
+                .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
+
+        prepareCalendarSyncState(tutoring);
+        Tutoring save = tutoringRepository.save(tutoring);
+        queueCalendarSync(save);
+        return TutoringResponseDto.of(save);
+    }
+
+    private void prepareCalendarSyncState(Tutoring tutoring) {
+        if (!googleCalendarService.isConfigured()) {
+            tutoring.markGoogleCalendarFailed(googleCalendarService.getConfigurationErrorMessage());
+            return;
+        }
+
+        tutoring.markGoogleCalendarPending();
+    }
+
+    private void queueCalendarSync(Tutoring tutoring) {
+        if (tutoring.getGoogleCalendarSyncStatus() == null
+                || tutoring.getGoogleCalendarSyncStatus() == GoogleCalendarSyncStatus.FAILED) {
+            return;
+        }
+        publisher.publishEvent(new TutoringCalendarSyncEvent(this, tutoring.getTutoringId()));
     }
 }
