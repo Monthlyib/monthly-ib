@@ -108,3 +108,15 @@ oauth:
       auth: https://oauth2.googleapis.com
       api: https://openidconnect.googleapis.com
       calendar-api: https://www.googleapis.com/calendar/v3
+
+finance:
+  aws:
+    access-key-id: ${AWS_BILLING_ACCESS_KEY_ID:}
+    secret-access-key: ${AWS_BILLING_SECRET_ACCESS_KEY:}
+    region: ${AWS_BILLING_REGION:us-east-1}
+  openai:
+    api-key: ${OPENAI_COSTS_API_KEY:}
+    organization-id: ${OPENAI_ORGANIZATION_ID:}
+    base-url: https://api.openai.com/v1
+  exchange:
+    base-url: https://api.frankfurter.app

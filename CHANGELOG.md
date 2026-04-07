@@ -7,6 +7,7 @@
 ### Added
 
 - 튜터링 row와 Google Calendar 이벤트를 1:1로 연결할 수 있도록 캘린더 event id, html link, sync 상태, 마지막 오류, 마지막 동기화 시각 메타 필드를 추가했습니다.
+- 관리자 운영 수익 분석을 위한 `/api/admin/finance/overview`, `/api/admin/finance/details` API와 AWS Cost Explorer, OpenAI Costs API, USD-KRW 환율 API를 묶어 읽는 비용 집계 서비스를 추가했습니다.
 
 ### Changed
 
