@@ -72,3 +72,5 @@
 - 합격 예측 계산기 설정 저장 시 `Group1~Group6` 그룹 규칙과 과목별 SL/HL 허용 정보를 함께 sanitize 하도록 확장했습니다.
 - 인증 성공 시 사용자 `lastAccessAt`을 주기적으로 갱신하고, 관리자 사용량 화면에서 학생별 질문/튜터링/수강 진도 사용량을 집계할 수 있도록 정리했습니다.
 - 템플릿 메일 발송 실패를 상위로 전달하고, `/api/mail`에서 제목/본문/수신자 검증 실패와 SMTP 실패를 의미 있는 에러 메시지로 반환하도록 정리했습니다.
+# 2026-04-08
+- Make admin finance OpenAI cost lookup fall back to `OPENAI_API_KEY` when `OPENAI_COSTS_API_KEY` is not configured.
