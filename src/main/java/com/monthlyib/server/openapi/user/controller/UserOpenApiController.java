@@ -27,6 +27,7 @@ public class UserOpenApiController implements UserOpenApiControllerIfs {
     @Override
     @PostMapping("/login")
     public ResponseEntity<ResponseDto<?>> login(
+            @RequestBody
             LoginDto loginDto
     ) {
         log.info("# Verify Login User");
