@@ -20,22 +20,23 @@ public class AdminMailAsyncService {
     private static final String ADMIN_NOTICE_TEMPLATE = "email-admin-notice";
 
     private final EmailSender emailSender;
+    private final AdminMailJobService adminMailJobService;
 
     @Async("mailTaskExecutor")
     public void sendInBackground(
-            List<AdminMailRecipient> recipients,
+            List<AdminMailDispatch> dispatches,
             String subject,
             String contentHtml,
             List<EmailAttachment> attachments,
             List<EmailInlineImage> inlineImages
     ) {
-        for (AdminMailRecipient recipient : recipients) {
+        for (AdminMailDispatch dispatch : dispatches) {
             try {
                 Map<String, Object> templateVariables = new HashMap<>();
-                templateVariables.put("recipientName", recipient.recipientName());
+                templateVariables.put("recipientName", dispatch.recipientName());
 
                 emailSender.sendEmail(
-                        new String[]{recipient.email()},
+                        new String[]{dispatch.email()},
                         subject,
                         contentHtml,
                         ADMIN_NOTICE_TEMPLATE,
@@ -43,10 +44,12 @@ public class AdminMailAsyncService {
                         attachments,
                         inlineImages
                 );
+                adminMailJobService.markSent(dispatch.jobId());
             } catch (Exception exception) {
+                adminMailJobService.markFailed(dispatch.jobId(), exception.getMessage());
                 log.error(
                         "Failed to send admin mail asynchronously. recipient={}, subject={}",
-                        recipient.email(),
+                        dispatch.email(),
                         subject,
                         exception
                 );
@@ -54,6 +57,9 @@ public class AdminMailAsyncService {
         }
     }
 
-    public record AdminMailRecipient(String email, String recipientName) {
+    public record AdminMailRecipient(Long targetUserId, String email, String recipientName) {
+    }
+
+    public record AdminMailDispatch(Long jobId, Long targetUserId, String email, String recipientName) {
     }
 }

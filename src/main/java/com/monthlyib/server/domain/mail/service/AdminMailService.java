@@ -54,6 +54,7 @@ public class AdminMailService {
 
     private final UserRepository userRepository;
     private final AdminMailAsyncService adminMailAsyncService;
+    private final AdminMailJobService adminMailJobService;
 
     public Map<String, Object> send(
             AdminMailPostDto requestDto,
@@ -91,13 +92,34 @@ public class AdminMailService {
 
         List<AdminMailAsyncService.AdminMailRecipient> recipients = targetUsers.stream()
                 .map(targetUser -> new AdminMailAsyncService.AdminMailRecipient(
+                        targetUser.getUserId(),
                         targetUser.getEmail().trim(),
                         getRecipientName(targetUser)
                 ))
                 .toList();
 
+        List<com.monthlyib.server.domain.mail.entity.AdminMailJob> queuedJobs =
+                adminMailJobService.createQueuedJobs(
+                        recipients,
+                        adminUser.getUserId(),
+                        subject,
+                        payload.attachments().size(),
+                        payload.inlineImages().size()
+                );
+
+        List<AdminMailAsyncService.AdminMailDispatch> dispatches = new ArrayList<>();
+        for (int index = 0; index < recipients.size(); index++) {
+            AdminMailAsyncService.AdminMailRecipient recipient = recipients.get(index);
+            dispatches.add(new AdminMailAsyncService.AdminMailDispatch(
+                    queuedJobs.get(index).getId(),
+                    recipient.targetUserId(),
+                    recipient.email(),
+                    recipient.recipientName()
+            ));
+        }
+
         adminMailAsyncService.sendInBackground(
-                recipients,
+                dispatches,
                 subject,
                 payload.contentHtml(),
                 payload.attachments(),
@@ -106,6 +128,7 @@ public class AdminMailService {
 
         return Map.of(
                 "queuedCount", targetUsers.size(),
+                "mailJobId", queuedJobs.stream().map(com.monthlyib.server.domain.mail.entity.AdminMailJob::getId).toList(),
                 "targetUserId", targetUsers.stream().map(User::getUserId).toList(),
                 "attachmentCount", payload.attachments().size(),
                 "inlineImageCount", payload.inlineImages().size(),
