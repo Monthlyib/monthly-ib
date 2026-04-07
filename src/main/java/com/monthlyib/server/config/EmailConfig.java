@@ -39,7 +39,7 @@ public class EmailConfig {
     @Primary
     @Bean
     public EmailSendable templateEmailSendable(TemplateEngine templateEngine) {
-        return new TemplateEmailSendable(javaMailSender(), templateEngine);
+        return new TemplateEmailSendable(javaMailSender(), templateEngine, username);
     }
 
     @Bean

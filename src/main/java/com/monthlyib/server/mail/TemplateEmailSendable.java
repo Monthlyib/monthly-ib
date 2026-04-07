@@ -14,10 +14,12 @@ import java.util.Map;
 public class TemplateEmailSendable implements EmailSendable {
     private final JavaMailSender javaMailSender;
     private final TemplateEngine templateEngine;
+    private final String defaultFrom;
 
-    public TemplateEmailSendable(JavaMailSender javaMailSender, TemplateEngine templateEngine) {
+    public TemplateEmailSendable(JavaMailSender javaMailSender, TemplateEngine templateEngine, String defaultFrom) {
         this.javaMailSender = javaMailSender;
         this.templateEngine = templateEngine;
+        this.defaultFrom = defaultFrom;
     }
 
     @Override
@@ -40,6 +42,9 @@ public class TemplateEmailSendable implements EmailSendable {
 
             String html = templateEngine.process(templateName, context);
             mimeMessageHelper.setTo(to);
+            if (defaultFrom != null && !defaultFrom.isBlank()) {
+                mimeMessageHelper.setFrom(defaultFrom);
+            }
             mimeMessageHelper.setSubject(subject);
             mimeMessageHelper.setText(html, true);
 

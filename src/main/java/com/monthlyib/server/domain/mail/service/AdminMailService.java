@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.MailSendException;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -59,12 +60,15 @@ public class AdminMailService {
 
         try {
             for (User targetUser : targetUsers) {
+                Map<String, Object> templateVariables = new HashMap<>();
+                templateVariables.put("recipientName", getRecipientName(targetUser));
+
                 emailSender.sendEmail(
                         new String[]{targetUser.getEmail().trim()},
                         subject,
                         content,
                         ADMIN_NOTICE_TEMPLATE,
-                        Map.of("recipientName", getRecipientName(targetUser))
+                        templateVariables
                 );
             }
         } catch (MailSendException e) {
@@ -78,6 +82,12 @@ public class AdminMailService {
             throw new ServiceLogicException(
                     ErrorCode.MAIL_SEND_FAILED,
                     "메일 전송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            );
+        } catch (RuntimeException e) {
+            log.error("Unexpected admin mail error. targets={}, subject={}", targetIds, subject, e);
+            throw new ServiceLogicException(
+                    ErrorCode.MAIL_SEND_FAILED,
+                    "메일 전송에 실패했습니다. 수신자 정보와 메일 템플릿을 확인해주세요."
             );
         }
 
@@ -132,7 +142,13 @@ public class AdminMailService {
         if (user.getNickName() != null && !user.getNickName().isBlank()) {
             return user.getNickName();
         }
-        return user.getUsername();
+        if (user.getUsername() != null && !user.getUsername().isBlank()) {
+            return user.getUsername();
+        }
+        if (user.getEmail() != null && !user.getEmail().isBlank()) {
+            return user.getEmail();
+        }
+        return "회원";
     }
 
     private void verifyAdmin(User user) {
