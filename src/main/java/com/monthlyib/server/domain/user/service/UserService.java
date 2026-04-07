@@ -66,8 +66,14 @@ public class UserService {
     @Value("${mail.subject.user.verification}")
     private String verificationSubject;
 
+    @Value("${mail.subject.user.password-reset}")
+    private String passwordResetSubject;
+
     @Value("${mail.template.name.user.join}")
     private String verificationTemplateName;
+
+    @Value("${mail.template.name.user.password-reset}")
+    private String passwordResetTemplateName;
 
     public Page<UserResponseDto> findAll(int page, User user) {
         verifyAdmin(user);
@@ -237,6 +243,59 @@ public class UserService {
         }
     }
 
+    public void resetPassword(PasswordResetRequestDto dto) {
+        String username = dto.getUsername() == null ? "" : dto.getUsername().trim();
+        String email = dto.getEmail() == null ? "" : dto.getEmail().trim();
+
+        if (username.isBlank()) {
+            throw new ServiceLogicException(ErrorCode.BAD_REQUEST, "아이디를 입력해주세요.");
+        }
+        if (email.isBlank()) {
+            throw new ServiceLogicException(ErrorCode.BAD_REQUEST, "이메일을 입력해주세요.");
+        }
+
+        verifyNum(VerifyNumRequestDto.builder()
+                .email(email)
+                .verifyNum(dto.getVerifyNum())
+                .build());
+
+        User user = findUserByUsername(username);
+        verifyUserStatus(user.getUserStatus());
+
+        if (!user.getEmail().equalsIgnoreCase(email)) {
+            throw new ServiceLogicException(ErrorCode.NOT_FOUND_USER, "입력한 아이디와 이메일이 일치하는 회원을 찾을 수 없습니다.");
+        }
+
+        if (!LoginType.BASIC.equals(user.getLoginType())) {
+            throw new ServiceLogicException(ErrorCode.BAD_REQUEST, "소셜 로그인 계정은 해당 소셜 로그인으로 이용해주세요.");
+        }
+
+        String temporaryPassword = generateTemporaryPassword(10);
+        String[] to = new String[]{email};
+        String message = user.getNickName() + "님, 임시 비밀번호는 " + temporaryPassword + " 입니다. 로그인 후 반드시 비밀번호를 변경해주세요.";
+
+        try {
+            emailSender.sendEmail(
+                    to,
+                    passwordResetSubject,
+                    message,
+                    passwordResetTemplateName,
+                    java.util.Map.of("recipientName", user.getNickName())
+            );
+        } catch (MailSendException e) {
+            log.error("Failed to send password reset email to {}", email, e);
+            throw new ServiceLogicException(ErrorCode.MAIL_SEND_FAILED, "임시 비밀번호 메일 발송에 실패했습니다. 다시 시도해주세요.");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("Password reset email sending interrupted for {}", email, e);
+            throw new ServiceLogicException(ErrorCode.MAIL_SEND_FAILED, "임시 비밀번호 메일 발송에 실패했습니다. 다시 시도해주세요.");
+        }
+
+        user.setPassword(passwordEncoder.encode(temporaryPassword));
+        userRepository.save(user);
+        verifyNumService.deleteNum(email);
+    }
+
     public void verifyUsername(UsernameVerifyDto dto) {
         String username = dto.getUsername();
         verifyUsername(username);
@@ -317,6 +376,18 @@ public class UserService {
         }
 
         return numStr.toString();
+    }
+
+    private String generateTemporaryPassword(int len) {
+        final String candidates = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+        Random rand = new Random();
+        StringBuilder password = new StringBuilder();
+
+        while (password.length() < len) {
+            password.append(candidates.charAt(rand.nextInt(candidates.length())));
+        }
+
+        return password.toString();
     }
 
     private void verifyAdmin(User user) {

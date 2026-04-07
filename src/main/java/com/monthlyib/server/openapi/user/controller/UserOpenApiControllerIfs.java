@@ -166,6 +166,22 @@ public interface UserOpenApiControllerIfs {
             @RequestBody VerifyNumRequestDto requestDto
     );
 
+    @Operation(summary = "비밀번호 초기화 요청", description = "아이디, 이메일, 인증번호를 확인한 뒤 임시 비밀번호를 메일로 발송합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "정상 응답", content = {
+                    @Content(mediaType = "application/json")
+            }),
+            @ApiResponse(responseCode = "400", description = "BAD REQUEST",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "ACCESS DENIED",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL SERVER ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+    })
+    ResponseEntity<ResponseDto<?>> resetPassword(
+            @RequestBody PasswordResetRequestDto requestDto
+    );
+
     // 이메일 인증 번호 확인 여부 요청
     @Operation(summary = "회원 아이디 검증 요청", description = "200 OK 응답 확인, 회원 아이디 검증 요청")
     @ApiResponses({

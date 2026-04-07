@@ -101,6 +101,13 @@ public class UserOpenApiController implements UserOpenApiControllerIfs {
     }
 
     @Override
+    @PostMapping("/reset-password")
+    public ResponseEntity<ResponseDto<?>> resetPassword(@RequestBody PasswordResetRequestDto requestDto) {
+        userService.resetPassword(requestDto);
+        return ResponseEntity.ok(ResponseDto.of(Result.ok()));
+    }
+
+    @Override
     @PostMapping("/verify-username")
     public ResponseEntity<ResponseDto<?>> verifyUsernamePost(UsernameVerifyDto requestDto) {
         userService.verifyUsername(requestDto);
