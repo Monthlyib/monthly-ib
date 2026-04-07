@@ -14,25 +14,28 @@ import com.monthlyib.server.constant.*;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.user.entity.UserImage;
 import com.monthlyib.server.domain.user.repository.UserRepository;
-import com.monthlyib.server.event.UserVerificationEvent;
 import com.monthlyib.server.exception.ServiceLogicException;
 import com.monthlyib.server.file.service.FileService;
+import com.monthlyib.server.mail.service.EmailSender;
 import com.monthlyib.server.openapi.user.dto.*;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import io.jsonwebtoken.ExpiredJwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailSendException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
@@ -50,8 +53,6 @@ public class UserService {
 
     private final HttpClientService httpClientService;
 
-    private final ApplicationEventPublisher publisher;
-
     private final VerifyNumService verifyNumService;
 
     private final NaverAuthService naverAuthService;
@@ -59,6 +60,14 @@ public class UserService {
     private final GoogleAuthService googleAuthService;
 
     private final FileService fileService;
+
+    private final EmailSender emailSender;
+
+    @Value("${mail.subject.user.verification}")
+    private String verificationSubject;
+
+    @Value("${mail.template.name.user.join}")
+    private String verificationTemplateName;
 
     public Page<UserResponseDto> findAll(int page, User user) {
         verifyAdmin(user);
@@ -187,35 +196,42 @@ public class UserService {
     public UserResponseDto createUser(UserPostRequestDto dto) {
         Optional<User> user = verifyEmail(dto.getEmail());
         if (user.isPresent()) throw new ServiceLogicException(ErrorCode.USER_EXIST);
-        try {
-            verifyNum(VerifyNumRequestDto.builder().email(dto.getEmail()).verifyNum(dto.getVerifyNum()).build());
-        } catch (Exception e) {
-            throw new ServiceLogicException(ErrorCode.EXPIRED_VERIFY);
-        }
+        verifyNum(VerifyNumRequestDto.builder().email(dto.getEmail()).verifyNum(dto.getVerifyNum()).build());
 
         String password = dto.getPassword();
         String pwd = passwordEncoder.encode(password);
         dto.setPassword(pwd);
         User newUser = User.createUser(dto);
         User saveUser = userRepository.save(newUser);
+        verifyNumService.deleteNum(dto.getEmail());
         return UserResponseDto.of(saveUser, firstUserImage(saveUser.getUserId()));
     }
 
     public void verifyEmailNumPost(EmailRequestDto dto) {
-        String email = dto.getEmail();
-        publisher.publishEvent(new UserVerificationEvent(this, email));
+        sendVerificationEmail(dto.getEmail());
     }
 
 
     public void verifyPwdEmail(EmailRequestDto dto) {
-        String email = dto.getEmail();
-        publisher.publishEvent(new UserVerificationEvent(this, email));
+        sendVerificationEmail(dto.getEmail());
     }
 
     public void verifyNum(VerifyNumRequestDto dto) {
-        String verifyNum = dto.getVerifyNum();
-        String email = dto.getEmail();
+        String verifyNum = dto.getVerifyNum() == null ? "" : dto.getVerifyNum().trim();
+        String email = dto.getEmail() == null ? "" : dto.getEmail().trim();
+
+        if (email.isBlank()) {
+            throw new ServiceLogicException(ErrorCode.BAD_REQUEST, "이메일을 입력해주세요.");
+        }
+        if (verifyNum.isBlank()) {
+            throw new ServiceLogicException(ErrorCode.BAD_REQUEST, "인증번호를 입력해주세요.");
+        }
+
         VerifyNumDto num = verifyNumService.getNum(email);
+        if (num.getCreatedAt() != null && num.getCreatedAt().plusMinutes(30).isBefore(LocalDateTime.now())) {
+            verifyNumService.deleteNum(email);
+            throw new ServiceLogicException(ErrorCode.EXPIRED_VERIFY);
+        }
         if (!verifyNum.equals(num.getVerifyNum())) {
             throw new ServiceLogicException(ErrorCode.WRONG_VERIFY_NUM);
         }
@@ -261,6 +277,46 @@ public class UserService {
                 throw e;
             }
         }
+    }
+
+    private void sendVerificationEmail(String email) {
+        String resolvedEmail = email == null ? "" : email.trim();
+        if (resolvedEmail.isBlank()) {
+            throw new ServiceLogicException(ErrorCode.BAD_REQUEST, "이메일을 입력해주세요.");
+        }
+
+        String verificationNum = generateVerificationNumber(6);
+        String[] to = new String[]{resolvedEmail};
+        String message = resolvedEmail + "님, 인증번호는 " + verificationNum + " 입니다.";
+
+        verifyNumService.createNum(resolvedEmail, verificationNum);
+
+        try {
+            emailSender.sendEmail(to, verificationSubject, message, verificationTemplateName);
+        } catch (MailSendException e) {
+            verifyNumService.deleteNum(resolvedEmail);
+            log.error("Failed to send verification email to {}", resolvedEmail, e);
+            throw new ServiceLogicException(ErrorCode.VERIFY_EMAIL_SEND_FAILED);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            verifyNumService.deleteNum(resolvedEmail);
+            log.error("Verification email sending interrupted for {}", resolvedEmail, e);
+            throw new ServiceLogicException(ErrorCode.VERIFY_EMAIL_SEND_FAILED);
+        }
+    }
+
+    private String generateVerificationNumber(int len) {
+        Random rand = new Random();
+        StringBuilder numStr = new StringBuilder();
+
+        while (numStr.length() < len) {
+            String ran = Integer.toString(rand.nextInt(10));
+            if (numStr.indexOf(ran) < 0) {
+                numStr.append(ran);
+            }
+        }
+
+        return numStr.toString();
     }
 
     private void verifyAdmin(User user) {

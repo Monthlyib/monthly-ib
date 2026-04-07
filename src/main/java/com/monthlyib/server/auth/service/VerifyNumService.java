@@ -24,12 +24,16 @@ public class VerifyNumService {
 
     public VerifyNumDto getNum(String email) {
         VerifyNumEntity entity = verifyNumRepository.findById(email)
-                .orElseThrow(() -> new ServiceLogicException(ErrorCode.EXPIRED_REFRESH_TOKEN));
+                .orElseThrow(() -> new ServiceLogicException(ErrorCode.VERIFY_NUM_NOT_FOUND));
         return VerifyNumDto.of(entity);
     }
 
-    public void deleteRefresh(String email) {
+    public void deleteNum(String email) {
         verifyNumRepository.deleteById(email);
+    }
+
+    public void deleteRefresh(String email) {
+        deleteNum(email);
     }
 
     public List<VerifyNumDto> getAll() {

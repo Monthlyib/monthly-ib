@@ -19,10 +19,10 @@ public enum ErrorCode {
 
     NOT_FOUND_USER(404, "회원을 찾을수 없습니다.", 14011),
     WRONG_PASSWORD(403, "비밀번호가 틀렸습니다.", 14013),
-    WRONG_VERIFY_NUM(403, "잘못된 인증번호 입니다.", 14014),
+    WRONG_VERIFY_NUM(403, "잘못된 인증 번호 입니다.", 14014),
     WITHDRAW_BAD_REQUEST(400, "정산 신청 금액은 보유 금액보다 작아야 합니다.", 14015),
     RATE_BAD_REQUEST(400, "하위 회원은 상위 회원 요율보다 작아야 합니다.", 14016),
-    EXPIRED_VERIFY(400, "이메일 인증이 만료되었습니다.", 14017),
+    EXPIRED_VERIFY(400, "이메일 인증번호가 만료되었습니다. 다시 발송해주세요.", 14017),
     AWS_BAD_REQUEST(400, "AWS_BAD_REQUEST", 14018),
     AWS_FILE_NOT_FOUND(404, "AWS_FILE_NOT_FOUND.", 14019),
     FILE_NOT_NULL(400, "FILE_NOT_NULL.", 14020),
@@ -48,6 +48,7 @@ public enum ErrorCode {
     MAIL_CONTENT_REQUIRED(400, "MAIL_CONTENT_REQUIRED.", 14040),
     MAIL_RECIPIENT_NOT_FOUND(404, "MAIL_RECIPIENT_NOT_FOUND.", 14041),
     MAIL_RECIPIENT_EMAIL_NOT_FOUND(400, "MAIL_RECIPIENT_EMAIL_NOT_FOUND.", 14042),
+    VERIFY_NUM_NOT_FOUND(400, "인증번호를 먼저 발송해주세요.", 14043),
 
 
 
@@ -58,7 +59,8 @@ public enum ErrorCode {
     NOT_IMPLEMENTED(501, "NOT IMPLEMENTED", 15004),
     AWS_IO_ERROR(500, "AWS_IO_ERROR", 15005),
     FILE_CONVERT_ERROR(500, "FILE_CONVERT_ERROR", 15006),
-    MAIL_SEND_FAILED(500, "MAIL_SEND_FAILED.", 15007);
+    MAIL_SEND_FAILED(500, "MAIL_SEND_FAILED.", 15007),
+    VERIFY_EMAIL_SEND_FAILED(500, "인증 메일 발송에 실패했습니다. 다시 시도해주세요.", 15008);
 
     @Getter
     private final int status;

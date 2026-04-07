@@ -72,7 +72,7 @@ public class UserOpenApiController implements UserOpenApiControllerIfs {
     @Override
     @PostMapping("/register")
     public ResponseEntity<ResponseDto<?>> register(
-            UserPostRequestDto requestDto
+            @RequestBody UserPostRequestDto requestDto
     ) {
         UserResponseDto response = userService.createUser(requestDto);
         return ResponseEntity.ok().body(ResponseDto.of(response, Result.ok()));
@@ -80,21 +80,21 @@ public class UserOpenApiController implements UserOpenApiControllerIfs {
 
     @Override
     @PostMapping("/verify-email")
-    public ResponseEntity<ResponseDto<?>> verifyEmailPost(EmailRequestDto requestDto) {
+    public ResponseEntity<ResponseDto<?>> verifyEmailPost(@RequestBody EmailRequestDto requestDto) {
         userService.verifyEmailNumPost(requestDto);
         return ResponseEntity.ok(ResponseDto.of(Result.ok()));
     }
 
     @Override
     @PostMapping("/pwd-email")
-    public ResponseEntity<ResponseDto<?>> verifyPwdEmailPost(EmailRequestDto requestDto) {
+    public ResponseEntity<ResponseDto<?>> verifyPwdEmailPost(@RequestBody EmailRequestDto requestDto) {
         userService.verifyPwdEmail(requestDto);
         return ResponseEntity.ok(ResponseDto.of(Result.ok()));
     }
 
     @Override
     @PostMapping("/verify-num")
-    public ResponseEntity<ResponseDto<?>> verifyNumPost(VerifyNumRequestDto requestDto) {
+    public ResponseEntity<ResponseDto<?>> verifyNumPost(@RequestBody VerifyNumRequestDto requestDto) {
         userService.verifyNum(requestDto);
         return ResponseEntity.ok(ResponseDto.of(Result.ok()));
     }
