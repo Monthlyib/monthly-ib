@@ -9,21 +9,18 @@ import com.monthlyib.server.domain.user.repository.UserRepository;
 import com.monthlyib.server.exception.ServiceLogicException;
 import com.monthlyib.server.mail.EmailAttachment;
 import com.monthlyib.server.mail.EmailInlineImage;
-import com.monthlyib.server.mail.service.EmailSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.safety.Safelist;
-import org.springframework.mail.MailSendException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +33,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AdminMailService {
 
-    private static final String ADMIN_NOTICE_TEMPLATE = "email-admin-notice";
     private static final int MAX_ATTACHMENT_COUNT = 5;
     private static final long MAX_TOTAL_ATTACHMENT_BYTES = 10L * 1024L * 1024L;
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
@@ -57,7 +53,7 @@ public class AdminMailService {
     private static final String LINK_STYLE = "color:#51346c;text-decoration:underline;";
 
     private final UserRepository userRepository;
-    private final EmailSender emailSender;
+    private final AdminMailAsyncService adminMailAsyncService;
 
     public Map<String, Object> send(
             AdminMailPostDto requestDto,
@@ -93,46 +89,27 @@ public class AdminMailService {
             }
         }
 
-        try {
-            for (User targetUser : targetUsers) {
-                Map<String, Object> templateVariables = new HashMap<>();
-                templateVariables.put("recipientName", getRecipientName(targetUser));
+        List<AdminMailAsyncService.AdminMailRecipient> recipients = targetUsers.stream()
+                .map(targetUser -> new AdminMailAsyncService.AdminMailRecipient(
+                        targetUser.getEmail().trim(),
+                        getRecipientName(targetUser)
+                ))
+                .toList();
 
-                emailSender.sendEmail(
-                        new String[]{targetUser.getEmail().trim()},
-                        subject,
-                        payload.contentHtml(),
-                        ADMIN_NOTICE_TEMPLATE,
-                        templateVariables,
-                        payload.attachments(),
-                        payload.inlineImages()
-                );
-            }
-        } catch (MailSendException e) {
-            log.error("Failed to send admin mail. targets={}, subject={}", targetIds, subject, e);
-            throw new ServiceLogicException(
-                    ErrorCode.MAIL_SEND_FAILED,
-                    "메일 전송에 실패했습니다. 메일 서버 설정 또는 수신자 정보를 확인해주세요."
-            );
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new ServiceLogicException(
-                    ErrorCode.MAIL_SEND_FAILED,
-                    "메일 전송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-            );
-        } catch (RuntimeException e) {
-            log.error("Unexpected admin mail error. targets={}, subject={}", targetIds, subject, e);
-            throw new ServiceLogicException(
-                    ErrorCode.MAIL_SEND_FAILED,
-                    "메일 전송에 실패했습니다. 수신자 정보와 메일 템플릿을 확인해주세요."
-            );
-        }
+        adminMailAsyncService.sendInBackground(
+                recipients,
+                subject,
+                payload.contentHtml(),
+                payload.attachments(),
+                payload.inlineImages()
+        );
 
         return Map.of(
-                "sentCount", targetUsers.size(),
+                "queuedCount", targetUsers.size(),
                 "targetUserId", targetUsers.stream().map(User::getUserId).toList(),
                 "attachmentCount", payload.attachments().size(),
-                "inlineImageCount", payload.inlineImages().size()
+                "inlineImageCount", payload.inlineImages().size(),
+                "deliveryStatus", "QUEUED"
         );
     }
 
