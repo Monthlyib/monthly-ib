@@ -9,9 +9,10 @@ import com.monthlyib.server.dto.Result;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -24,10 +25,11 @@ public class MailApiController {
 
     @PostMapping
     public ResponseEntity<ResponseDto<?>> postMail(
-            @RequestBody AdminMailPostDto requestDto,
+            @RequestPart("request") AdminMailPostDto requestDto,
+            @RequestPart(value = "attachments", required = false) MultipartFile[] attachments,
             @UserSession User user
     ) {
-        Map<String, Object> response = adminMailService.send(requestDto, user);
+        Map<String, Object> response = adminMailService.send(requestDto, attachments, user);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 }

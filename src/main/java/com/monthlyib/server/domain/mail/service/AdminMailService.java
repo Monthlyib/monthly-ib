@@ -7,17 +7,23 @@ import com.monthlyib.server.constant.UserStatus;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.user.repository.UserRepository;
 import com.monthlyib.server.exception.ServiceLogicException;
+import com.monthlyib.server.mail.EmailAttachment;
 import com.monthlyib.server.mail.service.EmailSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.MailSendException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -25,16 +31,23 @@ import java.util.Objects;
 public class AdminMailService {
 
     private static final String ADMIN_NOTICE_TEMPLATE = "email-admin-notice";
+    private static final int MAX_ATTACHMENT_COUNT = 5;
+    private static final long MAX_TOTAL_ATTACHMENT_BYTES = 10L * 1024L * 1024L;
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
+            "jpg", "jpeg", "png", "webp", "gif",
+            "pdf", "txt", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "zip"
+    );
 
     private final UserRepository userRepository;
     private final EmailSender emailSender;
 
-    public Map<String, Object> send(AdminMailPostDto requestDto, User adminUser) {
+    public Map<String, Object> send(AdminMailPostDto requestDto, MultipartFile[] attachments, User adminUser) {
         verifyAdmin(adminUser);
 
         List<Long> targetIds = normalizeTargetIds(requestDto);
         String subject = normalizeSubject(requestDto);
         String content = normalizeContent(requestDto);
+        List<EmailAttachment> normalizedAttachments = normalizeAttachments(attachments);
 
         List<User> targetUsers = targetIds.stream()
                 .map(userRepository::findById)
@@ -68,7 +81,8 @@ public class AdminMailService {
                         subject,
                         content,
                         ADMIN_NOTICE_TEMPLATE,
-                        templateVariables
+                        templateVariables,
+                        normalizedAttachments
                 );
             }
         } catch (MailSendException e) {
@@ -93,8 +107,97 @@ public class AdminMailService {
 
         return Map.of(
                 "sentCount", targetUsers.size(),
-                "targetUserId", targetUsers.stream().map(User::getUserId).toList()
+                "targetUserId", targetUsers.stream().map(User::getUserId).toList(),
+                "attachmentCount", normalizedAttachments.size()
         );
+    }
+
+    private List<EmailAttachment> normalizeAttachments(MultipartFile[] attachments) {
+        List<MultipartFile> normalizedFiles = attachments == null
+                ? List.of()
+                : Arrays.stream(attachments)
+                .filter(Objects::nonNull)
+                .filter(file -> file.getOriginalFilename() != null || !file.isEmpty())
+                .toList();
+
+        if (normalizedFiles.isEmpty()) {
+            return List.of();
+        }
+
+        if (normalizedFiles.size() > MAX_ATTACHMENT_COUNT) {
+            throw new ServiceLogicException(
+                    ErrorCode.MAIL_ATTACHMENT_COUNT_EXCEEDED,
+                    "첨부파일은 최대 5개까지 보낼 수 있습니다."
+            );
+        }
+
+        long totalSize = 0L;
+        for (MultipartFile file : normalizedFiles) {
+            if (file.isEmpty() || file.getSize() <= 0) {
+                throw new ServiceLogicException(
+                        ErrorCode.MAIL_ATTACHMENT_EMPTY,
+                        "빈 첨부파일은 보낼 수 없습니다."
+                );
+            }
+
+            String originalFilename = file.getOriginalFilename();
+            String extension = extractExtension(originalFilename);
+            if (!ALLOWED_EXTENSIONS.contains(extension)) {
+                throw new ServiceLogicException(
+                        ErrorCode.MAIL_ATTACHMENT_TYPE_NOT_ALLOWED,
+                        "허용되지 않은 첨부파일 형식입니다: " + safeFileName(originalFilename)
+                );
+            }
+
+            totalSize += file.getSize();
+            if (totalSize > MAX_TOTAL_ATTACHMENT_BYTES) {
+                throw new ServiceLogicException(
+                        ErrorCode.MAIL_ATTACHMENT_SIZE_EXCEEDED,
+                        "첨부파일 총 용량은 10MB를 초과할 수 없습니다."
+                );
+            }
+        }
+
+        List<EmailAttachment> normalizedAttachments = new ArrayList<>();
+        for (MultipartFile file : normalizedFiles) {
+            try {
+                normalizedAttachments.add(new EmailAttachment(
+                        safeFileName(file.getOriginalFilename()),
+                        normalizeContentType(file.getContentType()),
+                        file.getBytes()
+                ));
+            } catch (IOException e) {
+                log.error("Failed to read admin mail attachment", e);
+                throw new ServiceLogicException(
+                        ErrorCode.MAIL_ATTACHMENT_READ_FAILED,
+                        "첨부파일을 읽는 중 오류가 발생했습니다. 다시 시도해주세요."
+                );
+            }
+        }
+        return List.copyOf(normalizedAttachments);
+    }
+
+    private String extractExtension(String filename) {
+        String safeName = safeFileName(filename);
+        int extensionIndex = safeName.lastIndexOf('.');
+        if (extensionIndex < 0 || extensionIndex == safeName.length() - 1) {
+            return "";
+        }
+        return safeName.substring(extensionIndex + 1).toLowerCase();
+    }
+
+    private String safeFileName(String filename) {
+        if (filename == null || filename.isBlank()) {
+            return "attachment";
+        }
+        return filename.replaceAll("[\\r\\n]", "_").trim();
+    }
+
+    private String normalizeContentType(String contentType) {
+        if (contentType == null || contentType.isBlank()) {
+            return "application/octet-stream";
+        }
+        return contentType;
     }
 
     private List<Long> normalizeTargetIds(AdminMailPostDto requestDto) {

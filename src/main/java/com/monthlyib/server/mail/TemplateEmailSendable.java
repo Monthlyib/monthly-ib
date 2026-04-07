@@ -2,12 +2,14 @@ package com.monthlyib.server.mail;
 
 import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -28,7 +30,8 @@ public class TemplateEmailSendable implements EmailSendable {
             String subject,
             String message,
             String templateName,
-            Map<String, Object> variables
+            Map<String, Object> variables,
+            List<EmailAttachment> attachments
     ) {
         try {
             Context context = new Context();
@@ -38,7 +41,8 @@ public class TemplateEmailSendable implements EmailSendable {
             variables.forEach(context::setVariable);
 
             MimeMessage mimeMessage = javaMailSender.createMimeMessage();
-            MimeMessageHelper mimeMessageHelper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+            MimeMessageHelper mimeMessageHelper =
+                    new MimeMessageHelper(mimeMessage, attachments != null && !attachments.isEmpty(), "UTF-8");
 
             String html = templateEngine.process(templateName, context);
             mimeMessageHelper.setTo(to);
@@ -47,6 +51,16 @@ public class TemplateEmailSendable implements EmailSendable {
             }
             mimeMessageHelper.setSubject(subject);
             mimeMessageHelper.setText(html, true);
+
+            if (attachments != null) {
+                for (EmailAttachment attachment : attachments) {
+                    mimeMessageHelper.addAttachment(
+                            attachment.fileName(),
+                            new ByteArrayResource(attachment.data()),
+                            attachment.contentType()
+                    );
+                }
+            }
 
             javaMailSender.send(mimeMessage);
             log.info("Sent Template email!");
