@@ -2,6 +2,7 @@ package com.monthlyib.server.mail.service;
 
 import com.monthlyib.server.mail.EmailSendable;
 import com.monthlyib.server.mail.EmailAttachment;
+import com.monthlyib.server.mail.EmailInlineImage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.mail.MailSendException;
 import org.springframework.stereotype.Service;
@@ -38,6 +39,18 @@ public class EmailSender {
             Map<String, Object> variables,
             List<EmailAttachment> attachments
     ) throws MailSendException, InterruptedException {
-        emailSendable.send(to, subject, message, templateName, variables, attachments);
+        emailSendable.send(to, subject, message, templateName, variables, attachments, List.of());
+    }
+
+    public void sendEmail(
+            String[] to,
+            String subject,
+            String message,
+            String templateName,
+            Map<String, Object> variables,
+            List<EmailAttachment> attachments,
+            List<EmailInlineImage> inlineImages
+    ) throws MailSendException, InterruptedException {
+        emailSendable.send(to, subject, message, templateName, variables, attachments, inlineImages);
     }
 }

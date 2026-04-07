@@ -31,18 +31,25 @@ public class TemplateEmailSendable implements EmailSendable {
             String message,
             String templateName,
             Map<String, Object> variables,
-            List<EmailAttachment> attachments
+            List<EmailAttachment> attachments,
+            List<EmailInlineImage> inlineImages
     ) {
         try {
             Context context = new Context();
             context.setVariable("message", message);
+            context.setVariable("messageHtml", message);
             context.setVariable("subject", subject);
             context.setVariable("recipientName", variables.getOrDefault("recipientName", ""));
             variables.forEach(context::setVariable);
 
             MimeMessage mimeMessage = javaMailSender.createMimeMessage();
             MimeMessageHelper mimeMessageHelper =
-                    new MimeMessageHelper(mimeMessage, attachments != null && !attachments.isEmpty(), "UTF-8");
+                    new MimeMessageHelper(
+                            mimeMessage,
+                            (attachments != null && !attachments.isEmpty())
+                                    || (inlineImages != null && !inlineImages.isEmpty()),
+                            "UTF-8"
+                    );
 
             String html = templateEngine.process(templateName, context);
             mimeMessageHelper.setTo(to);
@@ -58,6 +65,16 @@ public class TemplateEmailSendable implements EmailSendable {
                             attachment.fileName(),
                             new ByteArrayResource(attachment.data()),
                             attachment.contentType()
+                    );
+                }
+            }
+
+            if (inlineImages != null) {
+                for (EmailInlineImage inlineImage : inlineImages) {
+                    mimeMessageHelper.addInline(
+                            inlineImage.contentId(),
+                            new ByteArrayResource(inlineImage.data()),
+                            inlineImage.contentType()
                     );
                 }
             }

@@ -27,9 +27,10 @@ public class MailApiController {
     public ResponseEntity<ResponseDto<?>> postMail(
             @RequestPart("request") AdminMailPostDto requestDto,
             @RequestPart(value = "attachments", required = false) MultipartFile[] attachments,
+            @RequestPart(value = "inlineImages", required = false) MultipartFile[] inlineImages,
             @UserSession User user
     ) {
-        Map<String, Object> response = adminMailService.send(requestDto, attachments, user);
+        Map<String, Object> response = adminMailService.send(requestDto, attachments, inlineImages, user);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 }

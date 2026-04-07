@@ -14,4 +14,5 @@ public class AdminMailPostDto {
     private List<Long> targetUserId;
     private String subject;
     private String content;
+    private List<String> inlineImageIds;
 }
