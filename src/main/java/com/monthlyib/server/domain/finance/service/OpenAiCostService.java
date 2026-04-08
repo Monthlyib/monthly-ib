@@ -140,7 +140,7 @@ public class OpenAiCostService {
 
             try {
                 ResponseEntity<String> response = restTemplate.exchange(
-                        uriBuilder.build(true).toUri(),
+                        uriBuilder.build().encode().toUri(),
                         HttpMethod.GET,
                         new HttpEntity<>(headers),
                         String.class
