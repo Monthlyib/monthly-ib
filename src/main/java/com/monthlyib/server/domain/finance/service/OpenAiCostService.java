@@ -7,7 +7,6 @@ import com.google.gson.JsonObject;
 import com.monthlyib.server.domain.finance.model.FinanceBreakdownAmount;
 import com.monthlyib.server.domain.finance.model.FinanceDailyAmount;
 import com.monthlyib.server.domain.finance.model.ProviderLoadResult;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
@@ -31,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
 public class OpenAiCostService {
 
     @Value("${finance.openai.api-key:}")
@@ -43,10 +41,15 @@ public class OpenAiCostService {
     @Value("${finance.openai.base-url:https://api.openai.com/v1}")
     private String baseUrl;
 
-    @Qualifier("financeRestTemplate")
     private final RestTemplate restTemplate;
     private final FinanceCacheService financeCacheService;
     private final Gson gson = new Gson();
+
+    public OpenAiCostService(@Qualifier("financeRestTemplate") RestTemplate restTemplate,
+                             FinanceCacheService financeCacheService) {
+        this.restTemplate = restTemplate;
+        this.financeCacheService = financeCacheService;
+    }
 
     public ProviderLoadResult<List<FinanceDailyAmount>> getDailyCosts(LocalDate startDate, LocalDate endExclusive) {
         return financeCacheService.getOrLoad(
