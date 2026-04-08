@@ -29,7 +29,7 @@ public class RestTemplateConfig {
         return restTemplateBuilder
                 .requestFactory(() -> new BufferingClientHttpRequestFactory(new SimpleClientHttpRequestFactory()))
                 .setConnectTimeout(Duration.ofMillis(5000))
-                .setReadTimeout(Duration.ofMillis(30000))
+                .setReadTimeout(Duration.ofMillis(120000))
                 .additionalMessageConverters(new StringHttpMessageConverter(Charset.forName("UTF-8")))
                 .build();
     }

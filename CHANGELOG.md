@@ -75,3 +75,4 @@
 # 2026-04-08
 - Make admin finance OpenAI cost lookup fall back to `OPENAI_API_KEY` when `OPENAI_COSTS_API_KEY` is not configured.
 - Use a dedicated finance `RestTemplate` with a longer read timeout so OpenAI cost aggregation does not fail on slower organization cost queries.
+- Increase the finance OpenAI timeout again to cover paginated 12-month cost queries that can take close to a minute.
