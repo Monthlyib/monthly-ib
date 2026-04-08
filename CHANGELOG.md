@@ -20,6 +20,7 @@
 - Google Calendar 연동은 기존 Google OAuth client 설정을 재사용하고, 운영 env의 refresh token으로 access token을 갱신해 기본 캘린더(`primary`)에 일정을 쓰도록 정리했습니다.
 - 운영 수익 분석은 외부 API 실시간 조회 대신 자정 이후 스케줄러와 수동 sync가 DB 일별 스냅샷을 적재하고, `/api/admin/finance/overview`와 `/details`는 저장된 snapshot/ledger 데이터만 조회하도록 정리했습니다.
 - 월간 IB 생성/수정과 공개 조회가 `content` HTML 본문을 정식으로 저장·반환하도록 바꾸고, PDF는 미리 업로드하지 않아도 다운로드 시점에 서버가 HTML 본문에서 즉석 생성하도록 전환했습니다.
+- 월간 IB PDF 생성기는 HTML 문자열을 XML처럼 다시 파싱하던 경로를 제거하고 W3C DOM 기반 렌더링으로 바꿔, 단순 본문도 `Internal Server Error` 없이 바로 PDF로 내려받을 수 있게 수정했습니다.
 
 ## 2026-04-07
 

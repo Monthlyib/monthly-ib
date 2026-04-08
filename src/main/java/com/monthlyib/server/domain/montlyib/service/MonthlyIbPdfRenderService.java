@@ -4,6 +4,7 @@ import com.monthlyib.server.domain.montlyib.entity.MonthlyIb;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
+import org.jsoup.helper.W3CDom;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.springframework.core.io.ClassPathResource;
@@ -35,7 +36,7 @@ public class MonthlyIbPdfRenderService {
             }
 
             .article {
-              width: 100%%;
+              width: 100%;
             }
 
             .eyebrow {
@@ -55,18 +56,18 @@ public class MonthlyIbPdfRenderService {
             }
 
             .thumbnail {
-              width: 100%%;
+              width: 100%;
               margin: 0 0 18px;
               border-radius: 14px;
             }
 
             .body {
-              width: 100%%;
+              width: 100%;
             }
 
             .body img {
               display: block;
-              max-width: 100%%;
+              max-width: 100%;
               height: auto;
               margin: 16px auto;
               border-radius: 12px;
@@ -143,7 +144,7 @@ public class MonthlyIbPdfRenderService {
                 PdfRendererBuilder builder = new PdfRendererBuilder();
                 builder.useFastMode();
                 builder.useFont(tempFontPath.toFile(), "Nanum Gothic");
-                builder.withHtmlContent(buildHtml(monthlyIb), null);
+                builder.withW3cDocument(new W3CDom().fromJsoup(buildHtmlDocument(monthlyIb)), null);
                 builder.toStream(outputStream);
                 builder.run();
                 return outputStream.toByteArray();
@@ -165,7 +166,7 @@ public class MonthlyIbPdfRenderService {
         return tempFile;
     }
 
-    private String buildHtml(MonthlyIb monthlyIb) {
+    private Document buildHtmlDocument(MonthlyIb monthlyIb) {
         Document document = Document.createShell("");
         document.outputSettings().prettyPrint(false);
         document.head().appendElement("meta").attr("charset", "UTF-8");
@@ -185,6 +186,6 @@ public class MonthlyIbPdfRenderService {
         Element body = article.appendElement("section").addClass("body");
         body.html(monthlyIb.getContent() == null ? "" : monthlyIb.getContent());
 
-        return document.outerHtml();
+        return document;
     }
 }
