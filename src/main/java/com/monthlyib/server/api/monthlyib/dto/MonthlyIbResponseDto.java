@@ -1,7 +1,6 @@
 package com.monthlyib.server.api.monthlyib.dto;
 
 import com.monthlyib.server.domain.montlyib.entity.MonthlyIb;
-import com.monthlyib.server.domain.montlyib.entity.MonthlyIbThumbnailFile;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

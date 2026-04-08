@@ -3,8 +3,6 @@ package com.monthlyib.server.api.monthlyib.controller;
 
 import com.monthlyib.server.annotation.UserSession;
 import com.monthlyib.server.api.monthlyib.dto.*;
-import com.monthlyib.server.api.user.controller.UserApiControllerIfs;
-import com.monthlyib.server.api.user.dto.UserPatchRequestDto;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.dto.ErrorResponse;
 import com.monthlyib.server.dto.PageResponseDto;
@@ -82,6 +80,22 @@ public interface MonthlyIbApiControllerIfs {
             @UserSession @Parameter(hidden = true) User user
     );
 
+    @Operation(summary = "MonthlyIB 본문 이미지 업로드(관리자)", description = "월간 IB 본문 에디터용 이미지를 업로드합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "정상 응답",
+                    content = {@Content(mediaType = "application/json"
+                            , schema = @Schema(implementation = ResponseDto.class)
+                    )}),
+            @ApiResponse(responseCode = "400", description = "BAD REQUEST",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL SERVER ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+    })
+    ResponseEntity<ResponseDto<?>> uploadMonthlyIbContentImage(
+            @RequestPart("image") MultipartFile image,
+            @UserSession @Parameter(hidden = true) User user
+    );
+
     // 썸네일 이미지 등록
     @Operation(summary = "MonthlyIB 썸네일 이미지 등록/수정(관리자)", description = "MonthlyIB 썸네일 이미지 등록 및 수정(이미 이미지가 등록 되어있다면 업로드 이미지로 수정됨)")
     @ApiResponses({
@@ -150,5 +164,17 @@ public interface MonthlyIbApiControllerIfs {
     ResponseEntity<ResponseDto<?>> deleteMonthlyIb(
             @PathVariable @Parameter(description = "MonthlyIB 식별자", required = true) Long monthlyIbId,
             @UserSession @Parameter(hidden = true) User user
+    );
+
+    @Operation(summary = "MonthlyIB PDF 다운로드(공개)", description = "월간 IB 본문에서 PDF를 생성하거나 기존 PDF를 다운로드합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "정상 응답"),
+            @ApiResponse(responseCode = "400", description = "BAD REQUEST",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL SERVER ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+    })
+    ResponseEntity<?> downloadMonthlyIbPdf(
+            @PathVariable @Parameter(description = "MonthlyIB 식별자", required = true) Long monthlyIbId
     );
 }

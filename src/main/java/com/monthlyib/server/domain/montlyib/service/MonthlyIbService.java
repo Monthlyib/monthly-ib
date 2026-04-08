@@ -10,6 +10,9 @@ import com.monthlyib.server.file.service.FileService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.safety.Safelist;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -24,6 +27,13 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class MonthlyIbService {
+
+    private static final Safelist MONTHLY_IB_CONTENT_SAFELIST = Safelist.relaxed()
+            .addTags("span", "div", "section", "article", "h1", "h2", "h3")
+            .addAttributes(":all", "class")
+            .addAttributes("img", "src", "alt", "width", "height")
+            .addProtocols("img", "src", "http", "https")
+            .addProtocols("a", "href", "http", "https", "mailto");
 
     private final MonthlyIbRepository monthlyIbRepository;
 
@@ -40,7 +50,17 @@ public class MonthlyIbService {
         return monthlyIbRepository.findMonthlyIbDtoById(monthlyIbId);
     }
 
+    public MonthlyIb findEntityById(Long monthlyIbId) {
+        return monthlyIbRepository.findMonthlyIbById(monthlyIbId);
+    }
+
+    public List<MonthlyIbPdfFileResponseDto> findPdfFiles(Long monthlyIbId) {
+        return monthlyIbRepository.findMonthlyIbPdfFileByMonthlyIbId(monthlyIbId);
+    }
+
     public MonthlyIbResponseDto createMonthlyIb(MonthlyIbPostDto dto) {
+        dto.setTitle(normalizeTitle(dto.getTitle()));
+        dto.setContent(sanitizeContent(dto.getContent()));
         MonthlyIb newMonthlyIb = MonthlyIb.create(dto);
         MonthlyIb saveMonthlyIb = monthlyIbRepository.saveMonthlyIb(newMonthlyIb);
         return MonthlyIbResponseDto.of(saveMonthlyIb, List.of());
@@ -93,11 +113,16 @@ public class MonthlyIbService {
 
     public MonthlyIbResponseDto updateMonthlyIb(Long monthlyIbId, MonthlyIbPatchDto dto) {
         MonthlyIb findMonthlyIb = monthlyIbRepository.findMonthlyIbById(monthlyIbId);
-        findMonthlyIb.setTitle(dto.getTitle());
-        findMonthlyIb.setContent(dto.getContent() == null ? "" : dto.getContent());
+        findMonthlyIb.setTitle(normalizeTitle(dto.getTitle()));
+        findMonthlyIb.setContent(sanitizeContent(dto.getContent()));
         MonthlyIb saveMonthlyIb = monthlyIbRepository.saveMonthlyIb(findMonthlyIb);
         List<MonthlyIbPdfFileResponseDto> list = monthlyIbRepository.findMonthlyIbPdfFileByMonthlyIbId(monthlyIbId);
         return MonthlyIbResponseDto.of(saveMonthlyIb, list);
+    }
+
+    public MonthlyIbContentImageResponseDto uploadContentImage(MultipartFile image) {
+        String imageUrl = fileService.saveMultipartFileForAws(image, AwsProperty.MONTHLYIB_CONTENT);
+        return MonthlyIbContentImageResponseDto.of(imageUrl);
     }
 
     public void deleteMonthlyIb(Long monthlyIbId) {
@@ -115,6 +140,28 @@ public class MonthlyIbService {
 
         monthlyIbRepository.deleteMonthlyIb(monthlyIbId);
 
+    }
+
+    public boolean hasMeaningfulContent(String content) {
+        if (content == null || content.isBlank()) {
+            return false;
+        }
+
+        Document document = Jsoup.parseBodyFragment(content);
+        if (!document.text().trim().isEmpty()) {
+            return true;
+        }
+
+        return !document.select("img, video, iframe, ul, ol, blockquote, h1, h2, h3").isEmpty();
+    }
+
+    private String normalizeTitle(String title) {
+        return title == null ? "" : title.trim();
+    }
+
+    private String sanitizeContent(String content) {
+        String rawContent = content == null ? "" : content.trim();
+        return Jsoup.clean(rawContent, "", MONTHLY_IB_CONTENT_SAFELIST, new Document.OutputSettings().prettyPrint(false));
     }
 
 

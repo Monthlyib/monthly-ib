@@ -7,6 +7,7 @@ public enum AwsProperty {
 
     // todo 디렉토리 이름 수정 필요
     MONTHLYIB_IMAGE("monthly-ib/image/"),
+    MONTHLYIB_CONTENT("monthly-ib/content/"),
     MONTHLYIB_PDF("monthly-ib/pdf/"),
     BOARD_FILE("board/file/"),
     NEWS_FILE("news/file/"),
