@@ -13,5 +13,7 @@ public class MonthlyIbPostDto {
 
     private String title;
 
+    private String content;
+
 
 }

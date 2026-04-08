@@ -14,5 +14,7 @@ public class MonthlyIbPatchDto {
 
     private String title;
 
+    private String content;
+
 
 }

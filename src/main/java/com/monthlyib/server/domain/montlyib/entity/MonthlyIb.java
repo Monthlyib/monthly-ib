@@ -36,7 +36,7 @@ public class MonthlyIb extends Auditable {
     public static MonthlyIb create(MonthlyIbPostDto dto) {
         return MonthlyIb.builder()
                 .title(dto.getTitle())
-                .content(dto.getTitle())
+                .content(dto.getContent() == null ? "" : dto.getContent())
                 .monthlyIbThumbnailFileId(0L)
                 .monthlyIbThumbnailFileName("")
                 .monthlyIbThumbnailFileUrl("")

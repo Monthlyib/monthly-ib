@@ -92,9 +92,9 @@ public class MonthlyIbService {
     }
 
     public MonthlyIbResponseDto updateMonthlyIb(Long monthlyIbId, MonthlyIbPatchDto dto) {
-        String title = dto.getTitle();
         MonthlyIb findMonthlyIb = monthlyIbRepository.findMonthlyIbById(monthlyIbId);
-        findMonthlyIb.setTitle(title);
+        findMonthlyIb.setTitle(dto.getTitle());
+        findMonthlyIb.setContent(dto.getContent() == null ? "" : dto.getContent());
         MonthlyIb saveMonthlyIb = monthlyIbRepository.saveMonthlyIb(findMonthlyIb);
         List<MonthlyIbPdfFileResponseDto> list = monthlyIbRepository.findMonthlyIbPdfFileByMonthlyIbId(monthlyIbId);
         return MonthlyIbResponseDto.of(saveMonthlyIb, list);

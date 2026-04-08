@@ -1,6 +1,7 @@
 package com.monthlyib.server.api.monthlyib.controller;
 
 
+import com.monthlyib.server.annotation.UserSession;
 import com.monthlyib.server.api.monthlyib.dto.*;
 import com.monthlyib.server.domain.montlyib.service.MonthlyIbService;
 import com.monthlyib.server.domain.user.entity.User;
@@ -28,8 +29,8 @@ public class MonthlyIbApiController implements MonthlyIbApiControllerIfs{
     @Override
     @GetMapping("/open-api/monthly-ib/list")
     public ResponseEntity<PageResponseDto<?>> getMonthlyIb(
-            int page,
-            MonthlyIbSearchDto requestDto
+            @RequestParam(defaultValue = "0") int page,
+            @ModelAttribute MonthlyIbSearchDto requestDto
     ) {
         Page<MonthlyIbSimpleResponseDto> response = monthlyIbService.findAllMonthlyIb(page, requestDto);
         return ResponseEntity.ok(PageResponseDto.of(response, response.getContent(), Result.ok()));
@@ -38,7 +39,7 @@ public class MonthlyIbApiController implements MonthlyIbApiControllerIfs{
     @Override
     @GetMapping({"/api/monthly-ib/{monthlyIbId}", "/open-api/monthly-ib/{monthlyIbId}"})
     public ResponseEntity<ResponseDto<?>> getMonthlyIb(
-            Long monthlyIbId
+            @PathVariable Long monthlyIbId
     ) {
         MonthlyIbResponseDto response = monthlyIbService.findMonthlyIbById(monthlyIbId);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
@@ -47,8 +48,8 @@ public class MonthlyIbApiController implements MonthlyIbApiControllerIfs{
     @Override
     @PostMapping("/api/monthly-ib")
     public ResponseEntity<ResponseDto<?>> postMonthlyIb(
-            MonthlyIbPostDto requestDto,
-            User user
+            @RequestBody MonthlyIbPostDto requestDto,
+            @UserSession User user
     ) {
         MonthlyIbResponseDto response = monthlyIbService.createMonthlyIb(requestDto);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
@@ -57,9 +58,9 @@ public class MonthlyIbApiController implements MonthlyIbApiControllerIfs{
     @Override
     @PostMapping("/api/monthly-ib/monthly-ib-thumbnail/{monthlyIbId}")
     public ResponseEntity<ResponseDto<?>> postMonthlyIbImage(
-            Long monthlyIbId,
-            MultipartFile[] multipartFile,
-            User user
+            @PathVariable Long monthlyIbId,
+            @RequestPart("image") MultipartFile[] multipartFile,
+            @UserSession User user
     ) {
         MonthlyIbResponseDto response = monthlyIbService.createOrUpdateMonthlyIbThumbnail(monthlyIbId, multipartFile);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
@@ -68,9 +69,9 @@ public class MonthlyIbApiController implements MonthlyIbApiControllerIfs{
     @Override
     @PostMapping("/api/monthly-ib/monthly-ib-pdf/{monthlyIbId}")
     public ResponseEntity<ResponseDto<?>> postMonthlyIbPdf(
-            Long monthlyIbId,
-            MultipartFile[] multipartFile,
-            User user
+            @PathVariable Long monthlyIbId,
+            @RequestPart("file") MultipartFile[] multipartFile,
+            @UserSession User user
     ) {
         MonthlyIbResponseDto response = monthlyIbService.createOrUpdateMonthlyIbPdf(monthlyIbId, multipartFile);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
@@ -79,9 +80,9 @@ public class MonthlyIbApiController implements MonthlyIbApiControllerIfs{
     @Override
     @PatchMapping("/api/monthly-ib/{monthlyIbId}")
     public ResponseEntity<ResponseDto<?>> patchMonthlyIb(
-            Long monthlyIbId,
-            MonthlyIbPatchDto requestDto,
-            User user
+            @PathVariable Long monthlyIbId,
+            @RequestBody MonthlyIbPatchDto requestDto,
+            @UserSession User user
     ) {
         MonthlyIbResponseDto response = monthlyIbService.updateMonthlyIb(monthlyIbId, requestDto);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
@@ -90,8 +91,8 @@ public class MonthlyIbApiController implements MonthlyIbApiControllerIfs{
     @Override
     @DeleteMapping("/api/monthly-ib/{monthlyIbId}")
     public ResponseEntity<ResponseDto<?>> deleteMonthlyIb(
-            Long monthlyIbId,
-            User user
+            @PathVariable Long monthlyIbId,
+            @UserSession User user
     ) {
         monthlyIbService.deleteMonthlyIb(monthlyIbId);
         return ResponseEntity.ok(ResponseDto.of(Result.ok()));

@@ -34,6 +34,7 @@ public class MonthlyIbResponseDto {
         return MonthlyIbResponseDto.builder()
                 .monthlyIbId(monthlyIb.getMonthlyIbId())
                 .title(monthlyIb.getTitle())
+                .content(monthlyIb.getContent())
                 .monthlyIbThumbnailId(monthlyIb.getMonthlyIbThumbnailFileId())
                 .monthlyIbThumbnailUrl(monthlyIb.getMonthlyIbThumbnailFileUrl())
                 .pdfFiles(pdfFiles)
