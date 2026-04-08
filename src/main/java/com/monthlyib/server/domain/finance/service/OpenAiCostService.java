@@ -22,6 +22,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -67,6 +68,32 @@ public class OpenAiCostService {
         );
     }
 
+    public ProviderLoadResult<List<FinanceDailyAmount>> loadDailyCosts(LocalDate startDate, LocalDate endExclusive) {
+        try {
+            return ProviderLoadResult.success(
+                    fetchDailyCosts(startDate, endExclusive),
+                    LocalDateTime.now(),
+                    false,
+                    null
+            );
+        } catch (Exception exception) {
+            return ProviderLoadResult.failure("OpenAI 비용 데이터를 불러오지 못했습니다.");
+        }
+    }
+
+    public ProviderLoadResult<Map<LocalDate, List<FinanceBreakdownAmount>>> loadDailyBreakdown(LocalDate startDate, LocalDate endExclusive) {
+        try {
+            return ProviderLoadResult.success(
+                    fetchDailyBreakdown(startDate, endExclusive),
+                    LocalDateTime.now(),
+                    false,
+                    null
+            );
+        } catch (Exception exception) {
+            return ProviderLoadResult.failure("OpenAI 비용 breakdown 데이터를 불러오지 못했습니다.");
+        }
+    }
+
     private List<FinanceDailyAmount> fetchDailyCosts(LocalDate startDate, LocalDate endExclusive) {
         validateConfigured();
         JsonArray buckets = fetchCosts(startDate, endExclusive, "1d", null);
@@ -110,6 +137,40 @@ public class OpenAiCostService {
                 .sorted((left, right) -> right.getValue().compareTo(left.getValue()))
                 .map(entry -> new FinanceBreakdownAmount(entry.getKey(), entry.getValue()))
                 .toList();
+    }
+
+    private Map<LocalDate, List<FinanceBreakdownAmount>> fetchDailyBreakdown(LocalDate startDate, LocalDate endExclusive) {
+        validateConfigured();
+        JsonArray buckets = fetchCosts(startDate, endExclusive, "1d", List.of("line_item"));
+
+        Map<LocalDate, Map<String, BigDecimal>> aggregated = new LinkedHashMap<>();
+        for (JsonElement bucketElement : buckets) {
+            JsonObject bucket = bucketElement.getAsJsonObject();
+            LocalDate date = epochSecondToDate(bucket.get("start_time"));
+            Map<String, BigDecimal> perDay = aggregated.computeIfAbsent(date, ignored -> new LinkedHashMap<>());
+            JsonArray results = getResults(bucket);
+            for (JsonElement resultElement : results) {
+                JsonObject result = resultElement.getAsJsonObject();
+                String label = getString(result, "line_item");
+                if (label == null || label.isBlank()) {
+                    label = getString(result, "project_id");
+                }
+                if (label == null || label.isBlank()) {
+                    label = "기타";
+                }
+                perDay.merge(label, extractAmountValue(result), BigDecimal::add);
+            }
+        }
+
+        Map<LocalDate, List<FinanceBreakdownAmount>> result = new LinkedHashMap<>();
+        aggregated.forEach((date, values) -> result.put(
+                date,
+                values.entrySet().stream()
+                        .sorted((left, right) -> right.getValue().compareTo(left.getValue()))
+                        .map(entry -> new FinanceBreakdownAmount(entry.getKey(), entry.getValue()))
+                        .toList()
+        ));
+        return result;
     }
 
     private JsonArray fetchCosts(LocalDate startDate, LocalDate endExclusive, String bucketWidth, List<String> groupBy) {

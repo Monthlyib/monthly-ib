@@ -8,6 +8,7 @@
 
 - 튜터링 row와 Google Calendar 이벤트를 1:1로 연결할 수 있도록 캘린더 event id, html link, sync 상태, 마지막 오류, 마지막 동기화 시각 메타 필드를 추가했습니다.
 - 관리자 운영 수익 분석을 위한 `/api/admin/finance/overview`, `/api/admin/finance/details` API와 AWS Cost Explorer, OpenAI Costs API, USD-KRW 환율 API를 묶어 읽는 비용 집계 서비스를 추가했습니다.
+- 운영 수익 분석용 `admin_finance_daily_snapshot`, `admin_finance_daily_breakdown`, `admin_finance_sync_job`, `payment_ledger_event` 저장 모델과 `/api/admin/finance/sync` 수동 동기화 API를 추가했습니다.
 
 ### Changed
 
@@ -16,6 +17,7 @@
 - 튜터링 예약 생성 시 `WAIT` 상태의 임시 Google Calendar 일정을 만들고, `CONFIRM`/`CANCEL`/삭제 시 같은 이벤트를 업데이트 또는 제거하도록 비동기 캘린더 연동 흐름을 추가했습니다.
 - 관리자용 `POST /api/tutoring/{tutoringId}/calendar-sync`를 추가해 실패한 튜터링 일정도 현재 상태 기준으로 다시 캘린더와 동기화할 수 있게 정리했습니다.
 - Google Calendar 연동은 기존 Google OAuth client 설정을 재사용하고, 운영 env의 refresh token으로 access token을 갱신해 기본 캘린더(`primary`)에 일정을 쓰도록 정리했습니다.
+- 운영 수익 분석은 외부 API 실시간 조회 대신 자정 이후 스케줄러와 수동 sync가 DB 일별 스냅샷을 적재하고, `/api/admin/finance/overview`와 `/details`는 저장된 snapshot/ledger 데이터만 조회하도록 정리했습니다.
 
 ## 2026-04-07
 

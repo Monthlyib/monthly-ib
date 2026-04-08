@@ -14,6 +14,7 @@ public class AdminFinanceDetailResponseDto {
     private List<FinanceBucketResponseDto> dailyBuckets;
     private List<FinanceBreakdownResponseDto> awsBreakdown;
     private List<FinanceBreakdownResponseDto> openAiBreakdown;
+    private List<FinanceBreakdownResponseDto> revenueBreakdown;
     private ExchangeRateMetaResponseDto exchangeRateMeta;
     private String revenueStatus;
     private LocalDateTime lastSyncedAt;

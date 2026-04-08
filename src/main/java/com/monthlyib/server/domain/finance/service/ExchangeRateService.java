@@ -16,6 +16,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -36,6 +37,19 @@ public class ExchangeRateService {
                 "환율",
                 () -> fetchRange(startDate, endDate)
         );
+    }
+
+    public ProviderLoadResult<ExchangeRateRange> loadUsdKrwRates(LocalDate startDate, LocalDate endDate) {
+        try {
+            return ProviderLoadResult.success(
+                    fetchRange(startDate, endDate),
+                    LocalDateTime.now(),
+                    false,
+                    null
+            );
+        } catch (Exception exception) {
+            return ProviderLoadResult.failure("환율 데이터를 불러오지 못했습니다.");
+        }
     }
 
     private ExchangeRateRange fetchRange(LocalDate startDate, LocalDate endDate) {

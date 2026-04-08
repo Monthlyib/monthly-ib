@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -57,6 +58,32 @@ public class AwsBillingService {
                 "AWS 서비스별 비용",
                 () -> fetchMonthlyBreakdown(yearMonth)
         );
+    }
+
+    public ProviderLoadResult<List<FinanceDailyAmount>> loadDailyCosts(LocalDate startDate, LocalDate endExclusive) {
+        try {
+            return ProviderLoadResult.success(
+                    fetchDailyCosts(startDate, endExclusive),
+                    LocalDateTime.now(),
+                    false,
+                    null
+            );
+        } catch (Exception exception) {
+            return ProviderLoadResult.failure("AWS 비용 데이터를 불러오지 못했습니다.");
+        }
+    }
+
+    public ProviderLoadResult<Map<LocalDate, List<FinanceBreakdownAmount>>> loadDailyBreakdown(LocalDate startDate, LocalDate endExclusive) {
+        try {
+            return ProviderLoadResult.success(
+                    fetchDailyBreakdown(startDate, endExclusive),
+                    LocalDateTime.now(),
+                    false,
+                    null
+            );
+        } catch (Exception exception) {
+            return ProviderLoadResult.failure("AWS 서비스별 비용 데이터를 불러오지 못했습니다.");
+        }
     }
 
     private List<FinanceDailyAmount> fetchDailyCosts(LocalDate startDate, LocalDate endExclusive) {
@@ -134,6 +161,55 @@ public class AwsBillingService {
                 .sorted((left, right) -> right.getValue().compareTo(left.getValue()))
                 .map(entry -> new FinanceBreakdownAmount(entry.getKey(), entry.getValue()))
                 .toList();
+    }
+
+    private Map<LocalDate, List<FinanceBreakdownAmount>> fetchDailyBreakdown(LocalDate startDate, LocalDate endExclusive) {
+        validateConfigured();
+
+        Map<LocalDate, Map<String, BigDecimal>> aggregated = new LinkedHashMap<>();
+        String nextPageToken = null;
+
+        AWSCostExplorer client = createClient();
+        try {
+            do {
+                GetCostAndUsageRequest request = new GetCostAndUsageRequest()
+                        .withTimePeriod(new DateInterval()
+                                .withStart(startDate.toString())
+                                .withEnd(endExclusive.toString()))
+                        .withGranularity(Granularity.DAILY)
+                        .withMetrics("UnblendedCost")
+                        .withGroupBy(new GroupDefinition()
+                                .withType("DIMENSION")
+                                .withKey("SERVICE"))
+                        .withNextPageToken(nextPageToken);
+
+                GetCostAndUsageResult response = client.getCostAndUsage(request);
+                for (ResultByTime bucket : response.getResultsByTime()) {
+                    LocalDate bucketDate = LocalDate.parse(bucket.getTimePeriod().getStart());
+                    Map<String, BigDecimal> perDay = aggregated.computeIfAbsent(bucketDate, ignored -> new LinkedHashMap<>());
+                    for (Group group : bucket.getGroups()) {
+                        String label = (group.getKeys() == null || group.getKeys().isEmpty())
+                                ? "기타"
+                                : group.getKeys().get(0);
+                        MetricValue metricValue = group.getMetrics().get("UnblendedCost");
+                        perDay.merge(label, extractMetricAmount(metricValue), BigDecimal::add);
+                    }
+                }
+                nextPageToken = response.getNextPageToken();
+            } while (nextPageToken != null);
+        } finally {
+            client.shutdown();
+        }
+
+        Map<LocalDate, List<FinanceBreakdownAmount>> results = new LinkedHashMap<>();
+        aggregated.forEach((date, values) -> results.put(
+                date,
+                values.entrySet().stream()
+                        .sorted((left, right) -> right.getValue().compareTo(left.getValue()))
+                        .map(entry -> new FinanceBreakdownAmount(entry.getKey(), entry.getValue()))
+                        .toList()
+        ));
+        return results;
     }
 
     private AWSCostExplorer createClient() {
