@@ -23,4 +23,14 @@ public class RestTemplateConfig {
                 .additionalMessageConverters(new StringHttpMessageConverter(Charset.forName("UTF-8")))
                 .build();
     }
+
+    @Bean("financeRestTemplate")
+    public RestTemplate financeRestTemplate(RestTemplateBuilder restTemplateBuilder) {
+        return restTemplateBuilder
+                .requestFactory(() -> new BufferingClientHttpRequestFactory(new SimpleClientHttpRequestFactory()))
+                .setConnectTimeout(Duration.ofMillis(5000))
+                .setReadTimeout(Duration.ofMillis(30000))
+                .additionalMessageConverters(new StringHttpMessageConverter(Charset.forName("UTF-8")))
+                .build();
+    }
 }

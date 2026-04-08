@@ -74,3 +74,4 @@
 - 템플릿 메일 발송 실패를 상위로 전달하고, `/api/mail`에서 제목/본문/수신자 검증 실패와 SMTP 실패를 의미 있는 에러 메시지로 반환하도록 정리했습니다.
 # 2026-04-08
 - Make admin finance OpenAI cost lookup fall back to `OPENAI_API_KEY` when `OPENAI_COSTS_API_KEY` is not configured.
+- Use a dedicated finance `RestTemplate` with a longer read timeout so OpenAI cost aggregation does not fail on slower organization cost queries.

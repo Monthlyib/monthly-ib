@@ -9,6 +9,7 @@ import com.monthlyib.server.domain.finance.model.FinanceDailyAmount;
 import com.monthlyib.server.domain.finance.model.ProviderLoadResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -42,6 +43,7 @@ public class OpenAiCostService {
     @Value("${finance.openai.base-url:https://api.openai.com/v1}")
     private String baseUrl;
 
+    @Qualifier("financeRestTemplate")
     private final RestTemplate restTemplate;
     private final FinanceCacheService financeCacheService;
     private final Gson gson = new Gson();
