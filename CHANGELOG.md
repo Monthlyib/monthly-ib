@@ -13,6 +13,7 @@
 
 ### Changed
 
+- Google 로그인 시 이메일이 같은 기존 회원이 이미 있으면 `USER EXIST` 오류 페이지로 보내지 않고, 해당 기존 회원 세션으로 바로 로그인되도록 정리했습니다.
 - Google Calendar 연동이 `GOOGLE_CALENDAR_CLIENT_ID/SECRET`를 우선 사용하고, 없을 때만 기존 로그인용 Google OAuth client 설정으로 fallback 하도록 정리했습니다.
 - `/open-api/reset-password`를 추가해 아이디·이메일·인증번호를 확인한 뒤 BASIC 계정의 임시 비밀번호를 새로 발급하고 메일로 보내도록 정리했습니다.
 - `/open-api/login` 구현 메서드에 요청 바디 바인딩을 명시해, 로그인 실패 시 기존 `ErrorResponse.message`가 프론트에서 안정적으로 소비될 수 있는 형태를 유지하도록 정리했습니다.

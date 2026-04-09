@@ -156,9 +156,13 @@ public class UserService {
             return loginResponse;
         } catch (ServiceLogicException e) {
             if (e.getErrorCode().equals(ErrorCode.USER_EXIST)) {
-                User user = userRepository.findByEmail(email)
+                User existingUser = userRepository.findByEmail(email)
                         .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
-                response.setHeader("userLoginType", user.getLoginType().name());
+                verifyUserStatus(existingUser.getUserStatus());
+                LoginApiResponseDto loginResponse = issueLoginResponse(existingUser);
+                response.setHeader("userId", String.valueOf(existingUser.getUserId()));
+                response.setHeader("userStatus", existingUser.getUserStatus().name());
+                return loginResponse;
             }
             throw e;
         }
