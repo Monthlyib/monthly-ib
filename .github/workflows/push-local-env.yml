@@ -15,7 +15,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
 
-      - name: Upload env.yml and deploy
+      - name: Upload env.yml and restart service
         env:
           ENV_YML_B64: ${{ secrets.TEMP_ENV_YML_B64 }}
         run: |
@@ -29,7 +29,9 @@ jobs:
               "mkdir -p src/main/resources",
               "python3 - <<'PY2'\nimport base64\nfrom pathlib import Path\nPath('src/main/resources/env.yml').write_bytes(base64.b64decode('''{}'''))\nPY2".format(env_b64),
               "chown -R ubuntu:ubuntu /home/ubuntu/monthly-ib",
-              "sudo -u ubuntu bash -lc 'cd /home/ubuntu/monthly-ib && chmod +x deploy.sh && bash deploy.sh'",
+              "sudo systemctl restart monthlyib",
+              "sleep 5",
+              "sudo systemctl status monthlyib --no-pager",
           ]
           print(json.dumps({"commands": commands}))
           PY
