@@ -1,0 +1,73 @@
+name: Push Local Env To EC2
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-env:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Upload env.yml and deploy
+        env:
+          ENV_YML_B64: ${{ secrets.TEMP_ENV_YML_B64 }}
+        run: |
+          python3 - <<'PY' > commands.json
+          import json
+          import os
+
+          env_b64 = os.environ["ENV_YML_B64"]
+          commands = [
+              "cd /home/ubuntu/monthly-ib",
+              "mkdir -p src/main/resources",
+              "python3 - <<'PY2'\nimport base64\nfrom pathlib import Path\nPath('src/main/resources/env.yml').write_bytes(base64.b64decode('''{}'''))\nPY2".format(env_b64),
+              "chown -R ubuntu:ubuntu /home/ubuntu/monthly-ib",
+              "sudo -u ubuntu bash -lc 'cd /home/ubuntu/monthly-ib && chmod +x deploy.sh && bash deploy.sh'",
+          ]
+          print(json.dumps({"commands": commands}))
+          PY
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --timeout-seconds 1800 \
+            --parameters file://commands.json \
+            --region ap-northeast-2 \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "Command ID: $COMMAND_ID"
+
+          for i in $(seq 1 60); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
+              --region ap-northeast-2 \
+              --query "Status" \
+              --output text)
+            echo "[$i/60] Status: $STATUS"
+            if [ "$STATUS" = "Success" ]; then
+              echo "Deploy succeeded."
+              exit 0
+            fi
+            if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
+                --region ap-northeast-2 \
+                --query "[StandardOutputContent,StandardErrorContent]" \
+                --output text
+              exit 1
+            fi
+            sleep 30
+          done
+
+          echo "Timed out waiting for deployment."
+          exit 1
