@@ -13,6 +13,7 @@
 
 ### Changed
 
+- Google Calendar 연동이 `GOOGLE_CALENDAR_CLIENT_ID/SECRET`를 우선 사용하고, 없을 때만 기존 로그인용 Google OAuth client 설정으로 fallback 하도록 정리했습니다.
 - `/open-api/reset-password`를 추가해 아이디·이메일·인증번호를 확인한 뒤 BASIC 계정의 임시 비밀번호를 새로 발급하고 메일로 보내도록 정리했습니다.
 - `/open-api/login` 구현 메서드에 요청 바디 바인딩을 명시해, 로그인 실패 시 기존 `ErrorResponse.message`가 프론트에서 안정적으로 소비될 수 있는 형태를 유지하도록 정리했습니다.
 - 튜터링 예약 생성 시 `WAIT` 상태의 임시 Google Calendar 일정을 만들고, `CONFIRM`/`CANCEL`/삭제 시 같은 이벤트를 업데이트 또는 제거하도록 비동기 캘린더 연동 흐름을 추가했습니다.

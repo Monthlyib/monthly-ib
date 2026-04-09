@@ -102,6 +102,8 @@ oauth:
     client-secret: ${GOOGLE_CLIENT_SECRET:}
     redirect-uri: ${GOOGLE_REDIRECT_URI:}
     calendar:
+      client-id: ${GOOGLE_CALENDAR_CLIENT_ID:${GOOGLE_CLIENT_ID:}}
+      client-secret: ${GOOGLE_CALENDAR_CLIENT_SECRET:${GOOGLE_CLIENT_SECRET:}}
       refresh-token: ${GOOGLE_CALENDAR_REFRESH_TOKEN:}
       calendar-id: ${GOOGLE_CALENDAR_ID:primary}
     url:

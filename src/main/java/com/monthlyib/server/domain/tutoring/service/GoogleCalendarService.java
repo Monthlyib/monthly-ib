@@ -36,10 +36,10 @@ public class GoogleCalendarService {
     private static final String SEOUL_TIMEZONE = "Asia/Seoul";
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
-    @Value("${oauth.google.client-id:}")
+    @Value("${oauth.google.calendar.client-id:}")
     private String clientId;
 
-    @Value("${oauth.google.client-secret:}")
+    @Value("${oauth.google.calendar.client-secret:}")
     private String clientSecret;
 
     @Value("${oauth.google.url.auth}")
