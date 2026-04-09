@@ -31,7 +31,9 @@ jobs:
               "chown -R ubuntu:ubuntu /home/ubuntu/monthly-ib",
               "sudo systemctl restart monthlyib",
               "sleep 5",
-              "sudo systemctl status monthlyib --no-pager",
+              "sudo systemctl status monthlyib --no-pager || true",
+              "sudo journalctl -u monthlyib -n 120 --no-pager -l",
+              "test \"$(systemctl is-active monthlyib)\" = \"active\"",
           ]
           print(json.dumps({"commands": commands}))
           PY
