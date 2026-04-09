@@ -2,6 +2,10 @@ package com.monthlyib.server.api.aiio.controller;
 
 import com.monthlyib.server.annotation.UserSession;
 import com.monthlyib.server.constant.AwsProperty;
+import com.monthlyib.server.domain.aihistory.entity.AiToolActionType;
+import com.monthlyib.server.domain.aihistory.entity.AiToolType;
+import com.monthlyib.server.domain.aihistory.model.AiToolHistoryCreateCommand;
+import com.monthlyib.server.domain.aihistory.service.AiToolHistoryService;
 import com.monthlyib.server.domain.aiia.service.OpenAiAssistantService;
 import com.monthlyib.server.domain.aiio.entity.VoiceFeedback;
 import com.monthlyib.server.domain.aiio.repository.VoiceFeedbackJpaRepository;
@@ -16,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -27,6 +32,7 @@ public class AiIoController {
     private final VoiceFeedbackJpaRepository feedbackRepo;
     private final OpenAiAssistantService openAiService;
     private final FileService fileService;
+    private final AiToolHistoryService aiToolHistoryService;
 
     @Value("${OPENAI_API_KEY}")
     private String openAiKey;
@@ -67,7 +73,35 @@ public class AiIoController {
         Map<String, Object> result = new HashMap<>();
         result.put("feedbackId", saved.getFeedbackId());
         result.put("feedbackContent", saved.getFeedbackContent());
+        Map<String, Object> requestPayload = new HashMap<>();
+        requestPayload.put("iocTopic", iocTopic);
+        requestPayload.put("workTitle", workTitle);
+
+        aiToolHistoryService.recordSuccess(AiToolHistoryCreateCommand.builder()
+                .user(user)
+                .toolType(AiToolType.IO_PRACTICE)
+                .actionType(AiToolActionType.VOICE_FEEDBACK)
+                .title("AI IO 피드백")
+                .summary(truncate(saved.getFeedbackContent(), 180))
+                .subject("Language A English")
+                .interestTopic(iocTopic)
+                .relatedEntityId(saved.getFeedbackId())
+                .requestPayload(requestPayload)
+                .responsePayload(result)
+                .attachmentUrls(saved.getAudioFilePath() == null ? List.of() : List.of(saved.getAudioFilePath()))
+                .build());
 
         return ResponseDto.of(result, Result.ok());
+    }
+
+    private String truncate(String text, int maxLength) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        String normalized = text.replaceAll("\\s+", " ").trim();
+        if (normalized.length() <= maxLength) {
+            return normalized;
+        }
+        return normalized.substring(0, Math.max(0, maxLength - 1)) + "…";
     }
 }

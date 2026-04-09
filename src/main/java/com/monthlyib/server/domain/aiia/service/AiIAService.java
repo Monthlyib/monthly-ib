@@ -6,6 +6,10 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.monthlyib.server.constant.ErrorCode;
+import com.monthlyib.server.domain.aihistory.entity.AiToolActionType;
+import com.monthlyib.server.domain.aihistory.entity.AiToolType;
+import com.monthlyib.server.domain.aihistory.model.AiToolHistoryCreateCommand;
+import com.monthlyib.server.domain.aihistory.service.AiToolHistoryService;
 import com.monthlyib.server.domain.aiia.entity.AiIARecommendation;
 import com.monthlyib.server.domain.aiia.repository.AiIARecommendationJpaRepository;
 import com.monthlyib.server.domain.user.entity.User;
@@ -28,6 +32,7 @@ public class AiIAService {
 
     private final AiIARecommendationJpaRepository repository;
     private final OpenAiAssistantService openAiService;
+    private final AiToolHistoryService aiToolHistoryService;
 
     @Value("${CHATGPT_ASSISTANT_KEY}")
     private String assistantKey;
@@ -50,7 +55,20 @@ public class AiIAService {
             Map<String, Object> result = parseAssistantJson(response);
 
             AiIARecommendation recommendation = AiIARecommendation.create(interest, subject, response, user);
-            repository.save(recommendation);
+            AiIARecommendation savedRecommendation = repository.save(recommendation);
+
+            aiToolHistoryService.recordSuccess(AiToolHistoryCreateCommand.builder()
+                    .user(user)
+                    .toolType(AiToolType.IA_COACHING)
+                    .actionType(AiToolActionType.TOPIC_RECOMMEND)
+                    .title("AI IA 주제 추천")
+                    .summary(buildTopicRecommendSummary(result))
+                    .subject(subject)
+                    .interestTopic(interest)
+                    .relatedEntityId(savedRecommendation.getId())
+                    .requestPayload(buildRecommendRequest(subject, interest))
+                    .responsePayload(result)
+                    .build());
 
             return result;
         } catch (ServiceLogicException e) {
@@ -78,8 +96,21 @@ public class AiIAService {
 
             String response = openAiService.callAssistant(assistantKey, prompt);
             log.debug("Topic guide response: {}", response);
+            Map<String, Object> result = parseAssistantJson(response);
 
-            return parseAssistantJson(response);
+            aiToolHistoryService.recordSuccess(AiToolHistoryCreateCommand.builder()
+                    .user(user)
+                    .toolType(AiToolType.IA_COACHING)
+                    .actionType(AiToolActionType.TOPIC_GUIDE)
+                    .title("AI IA 가이드 생성")
+                    .summary(buildTopicGuideSummary(result, topic))
+                    .subject(subject)
+                    .interestTopic(interestTopic)
+                    .requestPayload(buildTopicGuideRequest(subject, interestTopic, topic))
+                    .responsePayload(result)
+                    .build());
+
+            return result;
         } catch (ServiceLogicException e) {
             throw e;
         } catch (Exception e) {
@@ -109,6 +140,17 @@ public class AiIAService {
 
             Map<String, Object> result = new HashMap<>();
             result.put("reply", response);
+
+            aiToolHistoryService.recordSuccess(AiToolHistoryCreateCommand.builder()
+                    .user(user)
+                    .toolType(AiToolType.IA_COACHING)
+                    .actionType(AiToolActionType.ENGLISH_CHAT)
+                    .title("AI 영어 코칭")
+                    .summary(truncate(response, 180))
+                    .subject(subject)
+                    .requestPayload(buildEnglishChatRequest(subject, prompt, textType, responseMode))
+                    .responsePayload(result)
+                    .build());
             return result;
         } catch (ServiceLogicException e) {
             throw e;
@@ -153,5 +195,68 @@ public class AiIAService {
             log.error("Failed to parse assistant JSON response: {}", response, e);
             throw e;
         }
+    }
+
+    private Map<String, Object> buildRecommendRequest(String subject, String interest) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("subject", subject);
+        payload.put("interest", interest);
+        return payload;
+    }
+
+    private Map<String, Object> buildTopicGuideRequest(String subject, String interestTopic, Object topic) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("subject", subject);
+        payload.put("interestTopic", interestTopic);
+        payload.put("topic", topic);
+        return payload;
+    }
+
+    private Map<String, Object> buildEnglishChatRequest(String subject, String prompt, String textType, String responseMode) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("subject", subject);
+        payload.put("prompt", prompt);
+        payload.put("textType", textType);
+        payload.put("responseMode", responseMode);
+        return payload;
+    }
+
+    @SuppressWarnings("unchecked")
+    private String buildTopicRecommendSummary(Map<String, Object> result) {
+        Object topics = result.get("ia_topics");
+        if (topics instanceof java.util.List<?> topicList && !topicList.isEmpty()) {
+            Object first = topicList.get(0);
+            if (first instanceof Map<?, ?> firstMap && firstMap.get("title") != null) {
+                return truncate(String.valueOf(firstMap.get("title")), 180);
+            }
+        }
+        return "추천 주제 생성 완료";
+    }
+
+    private String buildTopicGuideSummary(Map<String, Object> result, Object topic) {
+        Object guide = result.get("guide");
+        if (guide instanceof Map<?, ?> guideMap) {
+            if (guideMap.get("title") != null) {
+                return truncate(String.valueOf(guideMap.get("title")), 180);
+            }
+            if (guideMap.get("overview") != null) {
+                return truncate(String.valueOf(guideMap.get("overview")), 180);
+            }
+        }
+        if (topic instanceof Map<?, ?> topicMap && topicMap.get("title") != null) {
+            return truncate(String.valueOf(topicMap.get("title")), 180);
+        }
+        return "가이드 생성 완료";
+    }
+
+    private String truncate(String text, int maxLength) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        String normalized = text.replaceAll("\\s+", " ").trim();
+        if (normalized.length() <= maxLength) {
+            return normalized;
+        }
+        return normalized.substring(0, Math.max(0, maxLength - 1)) + "…";
     }
 }

@@ -8,6 +8,10 @@ import com.monthlyib.server.api.aidescriptive.dto.AiDescriptivePostDto;
 import com.monthlyib.server.api.aidescriptive.dto.AiDescriptiveResponseDto;
 import com.monthlyib.server.constant.AwsProperty;
 import com.monthlyib.server.constant.ErrorCode;
+import com.monthlyib.server.domain.aihistory.entity.AiToolActionType;
+import com.monthlyib.server.domain.aihistory.entity.AiToolType;
+import com.monthlyib.server.domain.aihistory.model.AiToolHistoryCreateCommand;
+import com.monthlyib.server.domain.aihistory.service.AiToolHistoryService;
 import com.monthlyib.server.domain.aidescriptive.entity.AiDescriptiveAnswer;
 import com.monthlyib.server.domain.aidescriptive.entity.AiDescriptiveTest;
 import com.monthlyib.server.domain.aidescriptive.repository.AiDescriptiveAnswerJpaRepository;
@@ -26,6 +30,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -36,6 +44,7 @@ public class AiDescriptiveService {
     private final AiDescriptiveAnswerJpaRepository answerRepo;
     private final OpenAiAssistantService openAiService;
     private final FileService fileService;
+    private final AiToolHistoryService aiToolHistoryService;
 
     @Value("${CHATGPT_FINAL_ASSISTANT_KEY}")
     private String assistantKey;
@@ -118,7 +127,29 @@ public class AiDescriptiveService {
                 user);
 
         AiDescriptiveAnswer saved = answerRepo.save(answer);
-        return AiDescriptiveAnswerResponseDto.of(saved, test);
+        AiDescriptiveAnswerResponseDto response = AiDescriptiveAnswerResponseDto.of(saved, test);
+        Map<String, Object> requestPayload = new HashMap<>();
+        requestPayload.put("questionId", dto.getQuestionId());
+        requestPayload.put("subject", dto.getSubject());
+        requestPayload.put("chapter", dto.getChapter());
+        requestPayload.put("answer", dto.getAnswer());
+
+        aiToolHistoryService.recordSuccess(AiToolHistoryCreateCommand.builder()
+                .user(user)
+                .toolType(AiToolType.DESCRIPTIVE_TEST)
+                .actionType(AiToolActionType.ANSWER_SUBMIT)
+                .title("AI 서술형 답안 제출")
+                .summary(truncate(test.getQuestion(), 180))
+                .subject(test.getSubject())
+                .chapter(test.getChapter())
+                .relatedEntityId(saved.getId())
+                .requestPayload(requestPayload)
+                .responsePayload(response)
+                .attachmentUrls(test.getImagePath() == null ? List.of() : List.of(test.getImagePath()))
+                .maxScore(test.getMaxScore())
+                .build());
+
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -170,10 +201,39 @@ public class AiDescriptiveService {
 
             answer.setFeedback(feedbackEnglish, feedbackKorean, score, modelAnswer);
             AiDescriptiveAnswer saved = answerRepo.save(answer);
-            return AiDescriptiveAnswerResponseDto.of(saved, test);
+            AiDescriptiveAnswerResponseDto responseDto = AiDescriptiveAnswerResponseDto.of(saved, test);
+
+            aiToolHistoryService.recordSuccess(AiToolHistoryCreateCommand.builder()
+                    .user(answer.getUser())
+                    .toolType(AiToolType.DESCRIPTIVE_TEST)
+                    .actionType(AiToolActionType.FEEDBACK_GENERATE)
+                    .title("AI 서술형 피드백 생성")
+                    .summary(String.format("점수 %s/%s", score != null ? score : "-", test.getMaxScore()))
+                    .subject(test.getSubject())
+                    .chapter(test.getChapter())
+                    .relatedEntityId(saved.getId())
+                    .requestPayload(Map.of("answerId", answerId))
+                    .responsePayload(responseDto)
+                    .attachmentUrls(test.getImagePath() == null ? List.of() : List.of(test.getImagePath()))
+                    .score(score)
+                    .maxScore(test.getMaxScore())
+                    .build());
+
+            return responseDto;
         } catch (Exception e) {
             log.error("Failed to parse feedback JSON response: {}", response, e);
             throw new ServiceLogicException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private String truncate(String text, int maxLength) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        String normalized = text.replaceAll("\\s+", " ").trim();
+        if (normalized.length() <= maxLength) {
+            return normalized;
+        }
+        return normalized.substring(0, Math.max(0, maxLength - 1)) + "…";
     }
 }

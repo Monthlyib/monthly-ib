@@ -5,6 +5,10 @@ import com.monthlyib.server.api.aiio.dto.QuizSessionQuestionResponseDto;
 import com.monthlyib.server.api.aiio.dto.QuizSessionResponseDto;
 import com.monthlyib.server.api.aiio.dto.QuizStartDto;
 import com.monthlyib.server.constant.ErrorCode;
+import com.monthlyib.server.domain.aihistory.entity.AiToolActionType;
+import com.monthlyib.server.domain.aihistory.entity.AiToolType;
+import com.monthlyib.server.domain.aihistory.model.AiToolHistoryCreateCommand;
+import com.monthlyib.server.domain.aihistory.service.AiToolHistoryService;
 import com.monthlyib.server.domain.aiio.entity.AiChapterTest;
 import com.monthlyib.server.domain.aiio.entity.QuizSession;
 import com.monthlyib.server.domain.aiio.entity.QuizSessionQuestion;
@@ -19,7 +23,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -32,6 +38,7 @@ public class QuizService {
     private final QuizSessionJpaRepository sessionRepo;
     private final QuizSessionQuestionJpaRepository questionRepo;
     private final AiChapterTestJpaRepository testRepo;
+    private final AiToolHistoryService aiToolHistoryService;
 
     public QuizSessionResponseDto startQuiz(QuizStartDto dto, User user) {
         // Check if active session exists
@@ -66,7 +73,26 @@ public class QuizService {
                 .map(QuizSessionQuestionResponseDto::of)
                 .collect(Collectors.toList());
 
-        return QuizSessionResponseDto.of(savedSession, questionDtos);
+        QuizSessionResponseDto response = QuizSessionResponseDto.of(savedSession, questionDtos);
+        Map<String, Object> requestPayload = new HashMap<>();
+        requestPayload.put("subject", dto.getSubject());
+        requestPayload.put("chapter", dto.getChapter());
+        requestPayload.put("durationMinutes", duration);
+        aiToolHistoryService.recordSuccess(AiToolHistoryCreateCommand.builder()
+                .user(user)
+                .toolType(AiToolType.CHAPTER_TEST)
+                .actionType(AiToolActionType.QUIZ_START)
+                .title("AI Chapter Test 시작")
+                .summary(String.format("%s / %s 문제 %d개", dto.getSubject(), dto.getChapter(), savedQuestions.size()))
+                .subject(dto.getSubject())
+                .chapter(dto.getChapter())
+                .relatedEntityId(savedSession.getId())
+                .requestPayload(requestPayload)
+                .responsePayload(response)
+                .maxScore(savedQuestions.size())
+                .build());
+
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -126,7 +152,31 @@ public class QuizService {
                 .map(QuizSessionQuestionResponseDto::of)
                 .collect(Collectors.toList());
 
-        return QuizSessionResponseDto.of(savedSession, questionDtos);
+        QuizSessionResponseDto response = QuizSessionResponseDto.of(savedSession, questionDtos);
+        QuizResultResponseDto resultResponse = QuizResultResponseDto.of(savedSession, questions);
+        int elapsedSeconds = questions.stream()
+                .map(QuizSessionQuestion::getElapsedTime)
+                .filter(java.util.Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .sum();
+
+        aiToolHistoryService.recordSuccess(AiToolHistoryCreateCommand.builder()
+                .user(user)
+                .toolType(AiToolType.CHAPTER_TEST)
+                .actionType(AiToolActionType.QUIZ_RESULT)
+                .title("AI Chapter Test 결과")
+                .summary(String.format("%d/%d 정답", resultResponse.getCorrectCount(), resultResponse.getTotalQuestions()))
+                .subject(savedSession.getSubject())
+                .chapter(savedSession.getChapter())
+                .relatedEntityId(savedSession.getId())
+                .requestPayload(Map.of("quizSessionId", savedSession.getId()))
+                .responsePayload(resultResponse)
+                .score((int) Math.round(resultResponse.getScore()))
+                .maxScore(100)
+                .durationSeconds(elapsedSeconds)
+                .build());
+
+        return response;
     }
 
     @Transactional(readOnly = true)
