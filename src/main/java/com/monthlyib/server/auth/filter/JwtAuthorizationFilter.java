@@ -5,6 +5,7 @@ import com.monthlyib.server.auth.jwt.JwtTokenizer;
 import com.monthlyib.server.auth.util.CustomAuthorityUtils;
 import com.monthlyib.server.constant.Authority;
 import com.monthlyib.server.constant.ErrorCode;
+import com.monthlyib.server.constant.UserStatus;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.user.repository.UserRepository;
 import com.monthlyib.server.exception.ServiceLogicException;
@@ -105,6 +106,10 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
         User user = userRepository.findById(Long.parseLong(userId.toString()))
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
+
+        if (user.getMergedIntoUserId() != null || user.getUserStatus() == UserStatus.INACTIVE) {
+            throw new ServiceLogicException(ErrorCode.BLOCK_OR_INACTIVE_USER);
+        }
 
         long tokenSessionVersion = Long.parseLong(String.valueOf(claims.getOrDefault("sessionVersion", 0L)));
         long currentSessionVersion = user.getSessionVersion() == null ? 0L : user.getSessionVersion();

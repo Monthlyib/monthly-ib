@@ -1,6 +1,7 @@
 package com.monthlyib.server.openapi.user.dto;
 
 import com.monthlyib.server.constant.Authority;
+import com.monthlyib.server.constant.LoginType;
 import com.monthlyib.server.constant.UserStatus;
 import com.monthlyib.server.auth.token.Token;
 import com.monthlyib.server.domain.user.entity.User;
@@ -10,6 +11,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -42,8 +44,11 @@ public class LoginApiResponseDto {
     @Schema(description = "회원 상태")
     private UserStatus userStatus;
 
+    @Schema(description = "연결된 로그인 수단")
+    private List<LoginType> linkedProviders;
 
-    public static LoginApiResponseDto of(Token token, User user) {
+
+    public static LoginApiResponseDto of(Token token, User user, List<LoginType> linkedProviders) {
         return LoginApiResponseDto.builder()
                 .userId(user.getUserId())
                 .username(user.getUsername())
@@ -53,6 +58,7 @@ public class LoginApiResponseDto {
                 .refreshToken(token.getRefreshToken())
                 .authority(user.getAuthority())
                 .userStatus(user.getUserStatus())
+                .linkedProviders(linkedProviders)
                 .build();
     }
 

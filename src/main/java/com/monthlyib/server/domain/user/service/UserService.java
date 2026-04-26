@@ -2,6 +2,7 @@ package com.monthlyib.server.domain.user.service;
 
 import com.monthlyib.server.api.user.dto.UserPatchRequestDto;
 import com.monthlyib.server.api.user.dto.UserResponseDto;
+import com.monthlyib.server.api.user.dto.UserSocialReconcileResponseDto;
 import com.monthlyib.server.api.user.dto.UserSocialPatchRequestDto;
 import com.monthlyib.server.auth.dto.OauthInfo;
 import com.monthlyib.server.auth.service.GoogleAuthService;
@@ -11,9 +12,21 @@ import com.monthlyib.server.auth.service.RefreshService;
 import com.monthlyib.server.auth.service.VerifyNumService;
 import com.monthlyib.server.auth.token.Token;
 import com.monthlyib.server.constant.*;
+import com.monthlyib.server.domain.aidescriptive.entity.AiDescriptiveAnswer;
+import com.monthlyib.server.domain.aidescriptive.repository.AiDescriptiveAnswerJpaRepository;
+import com.monthlyib.server.domain.aihistory.entity.AiToolHistory;
+import com.monthlyib.server.domain.aihistory.repository.AiToolHistoryJpaRepository;
+import com.monthlyib.server.domain.aiia.entity.AiIARecommendation;
+import com.monthlyib.server.domain.aiia.repository.AiIARecommendationJpaRepository;
+import com.monthlyib.server.domain.aiio.entity.QuizSession;
+import com.monthlyib.server.domain.aiio.entity.VoiceFeedback;
+import com.monthlyib.server.domain.aiio.repository.QuizSessionJpaRepository;
+import com.monthlyib.server.domain.aiio.repository.VoiceFeedbackJpaRepository;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.user.entity.UserImage;
+import com.monthlyib.server.domain.user.entity.UserLoginProvider;
 import com.monthlyib.server.domain.user.repository.UserRepository;
+import com.monthlyib.server.domain.user.repository.UserLoginProviderJpaRepository;
 import com.monthlyib.server.exception.ServiceLogicException;
 import com.monthlyib.server.file.service.FileService;
 import com.monthlyib.server.mail.service.EmailSender;
@@ -33,9 +46,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -46,6 +64,18 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     private final UserRepository userRepository;
+
+    private final UserLoginProviderJpaRepository userLoginProviderJpaRepository;
+
+    private final AiToolHistoryJpaRepository aiToolHistoryJpaRepository;
+
+    private final AiIARecommendationJpaRepository aiIARecommendationJpaRepository;
+
+    private final QuizSessionJpaRepository quizSessionJpaRepository;
+
+    private final AiDescriptiveAnswerJpaRepository aiDescriptiveAnswerJpaRepository;
+
+    private final VoiceFeedbackJpaRepository voiceFeedbackJpaRepository;
 
     private final JwtTokenizer tokenizer;
 
@@ -79,9 +109,7 @@ public class UserService {
         verifyAdmin(user);
 
         return userRepository.findAll(PageRequest.of(page, 15, Sort.by("createAt").descending()))
-                .map( u -> {
-                    return UserResponseDto.of(u, firstUserImage(u.getUserId()));
-                });
+                .map(this::toUserResponseDto);
     }
 
 
@@ -89,8 +117,7 @@ public class UserService {
         String username = loginDto.getUsername();
         String password = loginDto.getPassword();
         User findUser = findUserByUsername(username);
-        UserStatus userStatus = findUser.getUserStatus();
-        verifyUserStatus(userStatus);
+        verifyUserAvailable(findUser);
         if (password.equals(findUser.getPassword()) || passwordEncoder.matches(password, findUser.getPassword())) {
             return issueLoginResponse(findUser);
         } else {
@@ -110,68 +137,36 @@ public class UserService {
         }
 
         String email = httpClientService.generateLoginRequest(socialLoginDto);
-        try {
-            User user = createOrVerifiedUserByEmailAndLoginType(email, socialLoginDto.getLoginType());
-            LoginApiResponseDto loginResponse = issueLoginResponse(user);
-            response.setHeader("userId", String.valueOf(user.getUserId()));
-            response.setHeader("userStatus", user.getUserStatus().name());
-            return loginResponse;
-        } catch (ServiceLogicException e) {
-            if (e.getErrorCode().equals(ErrorCode.USER_EXIST)) {
-                User user = userRepository.findByEmail(email)
-                        .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
-                response.setHeader("userLoginType", user.getLoginType().name());
-            }
-            throw e;
-        }
+        LoginType loginType = LoginType.valueOf(socialLoginDto.getLoginType().toUpperCase());
+        User user = findOrCreateSocialUser(email, loginType, null);
+        LoginApiResponseDto loginResponse = issueLoginResponse(user);
+        response.setHeader("userId", String.valueOf(user.getUserId()));
+        response.setHeader("userStatus", user.getUserStatus().name());
+        return loginResponse;
     }
 
     public LoginApiResponseDto loginSocialNaver(NaverLoginRequest naverLoginRequest, HttpServletResponse response) {
         OauthInfo info = naverAuthService.getNaverInfo(naverLoginRequest);
-        String email = info.getEmail();
-        try {
-            User user = createOrVerifiedUserByEmailAndLoginType(email, info.getLoginType().name());
-            LoginApiResponseDto loginResponse = issueLoginResponse(user);
-            response.setHeader("userId", String.valueOf(user.getUserId()));
-            response.setHeader("userStatus", user.getUserStatus().name());
-            return loginResponse;
-        } catch (ServiceLogicException e) {
-            if (e.getErrorCode().equals(ErrorCode.USER_EXIST)) {
-                User user = userRepository.findByEmail(email)
-                        .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
-                response.setHeader("userLoginType", user.getLoginType().name());
-            }
-            throw e;
-        }
+        User user = findOrCreateSocialUser(info.getEmail(), info.getLoginType(), info.getNickname());
+        LoginApiResponseDto loginResponse = issueLoginResponse(user);
+        response.setHeader("userId", String.valueOf(user.getUserId()));
+        response.setHeader("userStatus", user.getUserStatus().name());
+        return loginResponse;
     }
 
     public LoginApiResponseDto loginSocialGoogle(GoogleLoginRequest googleLoginRequest, HttpServletResponse response) {
         OauthInfo info = googleAuthService.getGoogleInfo(googleLoginRequest);
-        String email = info.getEmail();
-        try {
-            User user = createOrVerifiedUserByEmailAndLoginType(email, info.getLoginType().name());
-            LoginApiResponseDto loginResponse = issueLoginResponse(user);
-            response.setHeader("userId", String.valueOf(user.getUserId()));
-            response.setHeader("userStatus", user.getUserStatus().name());
-            return loginResponse;
-        } catch (ServiceLogicException e) {
-            if (e.getErrorCode().equals(ErrorCode.USER_EXIST)) {
-                User existingUser = userRepository.findByEmail(email)
-                        .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
-                verifyUserStatus(existingUser.getUserStatus());
-                LoginApiResponseDto loginResponse = issueLoginResponse(existingUser);
-                response.setHeader("userId", String.valueOf(existingUser.getUserId()));
-                response.setHeader("userStatus", existingUser.getUserStatus().name());
-                return loginResponse;
-            }
-            throw e;
-        }
+        User user = findOrCreateSocialUser(info.getEmail(), info.getLoginType(), info.getNickname());
+        LoginApiResponseDto loginResponse = issueLoginResponse(user);
+        response.setHeader("userId", String.valueOf(user.getUserId()));
+        response.setHeader("userStatus", user.getUserStatus().name());
+        return loginResponse;
     }
 
     public UserResponseDto findUserById(Long userId, User user) {
         verifyAdminOrSelf(user, userId);
 
-        return UserResponseDto.of(findUserEntity(userId), firstUserImage(userId));
+        return toUserResponseDto(findUserEntity(userId));
     }
 
     public UserResponseDto updateUser(Long userId, UserPatchRequestDto dto, User user) {
@@ -187,7 +182,7 @@ public class UserService {
             dto.setPassword(encodePassword);
         }
         User updateUser = findUser.updateUser(dto);
-        return UserResponseDto.of(userRepository.save(updateUser), firstUserImage(userId));
+        return toUserResponseDto(userRepository.save(updateUser));
     }
 
 
@@ -200,35 +195,37 @@ public class UserService {
         }
         User updateUser = findUser.updateSocialUser(dto);
         updateUser.setUserStatus(UserStatus.ACTIVE);
-        return UserResponseDto.of(userRepository.save(updateUser), firstUserImage(userId));
+        return toUserResponseDto(userRepository.save(updateUser));
     }
 
     public UserResponseDto createUser(UserPostRequestDto dto) {
-        Optional<User> user = verifyEmail(dto.getEmail());
+        String normalizedEmail = normalizeEmail(dto.getEmail());
+        dto.setEmail(normalizedEmail);
+        Optional<User> user = verifyEmail(normalizedEmail);
         if (user.isPresent()) throw new ServiceLogicException(ErrorCode.USER_EXIST);
-        verifyNum(VerifyNumRequestDto.builder().email(dto.getEmail()).verifyNum(dto.getVerifyNum()).build());
+        verifyNum(VerifyNumRequestDto.builder().email(normalizedEmail).verifyNum(dto.getVerifyNum()).build());
 
         String password = dto.getPassword();
         String pwd = passwordEncoder.encode(password);
         dto.setPassword(pwd);
         User newUser = User.createUser(dto);
         User saveUser = userRepository.save(newUser);
-        verifyNumService.deleteNum(dto.getEmail());
-        return UserResponseDto.of(saveUser, firstUserImage(saveUser.getUserId()));
+        verifyNumService.deleteNum(normalizedEmail);
+        return toUserResponseDto(saveUser);
     }
 
     public void verifyEmailNumPost(EmailRequestDto dto) {
-        sendVerificationEmail(dto.getEmail());
+        sendVerificationEmail(normalizeEmail(dto.getEmail()));
     }
 
 
     public void verifyPwdEmail(EmailRequestDto dto) {
-        sendVerificationEmail(dto.getEmail());
+        sendVerificationEmail(normalizeEmail(dto.getEmail()));
     }
 
     public void verifyNum(VerifyNumRequestDto dto) {
         String verifyNum = dto.getVerifyNum() == null ? "" : dto.getVerifyNum().trim();
-        String email = dto.getEmail() == null ? "" : dto.getEmail().trim();
+        String email = normalizeEmail(dto.getEmail());
 
         if (email.isBlank()) {
             throw new ServiceLogicException(ErrorCode.BAD_REQUEST, "이메일을 입력해주세요.");
@@ -249,7 +246,7 @@ public class UserService {
 
     public void resetPassword(PasswordResetRequestDto dto) {
         String username = dto.getUsername() == null ? "" : dto.getUsername().trim();
-        String email = dto.getEmail() == null ? "" : dto.getEmail().trim();
+        String email = normalizeEmail(dto.getEmail());
 
         if (username.isBlank()) {
             throw new ServiceLogicException(ErrorCode.BAD_REQUEST, "아이디를 입력해주세요.");
@@ -300,6 +297,58 @@ public class UserService {
         verifyNumService.deleteNum(email);
     }
 
+    public UserSocialReconcileResponseDto reconcileSocialLinks(User requestUser) {
+        verifyAdmin(requestUser);
+
+        List<String> duplicateEmails = userRepository.findDuplicateNormalizedEmails();
+        List<Long> mergedSourceUserIds = new ArrayList<>();
+        List<Long> canonicalUserIds = new ArrayList<>();
+        int movedAiHistoryCount = 0;
+        int movedIaRecommendationCount = 0;
+        int movedQuizSessionCount = 0;
+        int movedDescriptiveAnswerCount = 0;
+        int movedVoiceFeedbackCount = 0;
+
+        for (String email : duplicateEmails) {
+            List<User> users = userRepository.findAllByEmail(email);
+            if (users.size() < 2) {
+                continue;
+            }
+
+            User canonicalUser = selectCanonicalUser(users);
+            canonicalUserIds.add(canonicalUser.getUserId());
+
+            for (User duplicateUser : users) {
+                if (duplicateUser.getUserId().equals(canonicalUser.getUserId())) {
+                    continue;
+                }
+
+                movedAiHistoryCount += moveAiToolHistories(duplicateUser, canonicalUser);
+                movedIaRecommendationCount += moveIaRecommendations(duplicateUser, canonicalUser);
+                movedQuizSessionCount += moveQuizSessions(duplicateUser, canonicalUser);
+                movedDescriptiveAnswerCount += moveDescriptiveAnswers(duplicateUser, canonicalUser);
+                movedVoiceFeedbackCount += moveVoiceFeedbacks(duplicateUser, canonicalUser);
+                moveProviderLinks(duplicateUser, canonicalUser);
+
+                duplicateUser.setMergedIntoUserId(canonicalUser.getUserId());
+                duplicateUser.setUserStatus(UserStatus.INACTIVE);
+                userRepository.save(duplicateUser);
+                mergedSourceUserIds.add(duplicateUser.getUserId());
+            }
+        }
+
+        return UserSocialReconcileResponseDto.builder()
+                .mergedUserCount(mergedSourceUserIds.size())
+                .movedAiHistoryCount(movedAiHistoryCount)
+                .movedIaRecommendationCount(movedIaRecommendationCount)
+                .movedQuizSessionCount(movedQuizSessionCount)
+                .movedDescriptiveAnswerCount(movedDescriptiveAnswerCount)
+                .movedVoiceFeedbackCount(movedVoiceFeedbackCount)
+                .mergedSourceUserIds(mergedSourceUserIds)
+                .canonicalUserIds(canonicalUserIds.stream().distinct().toList())
+                .build();
+    }
+
     public void verifyUsername(UsernameVerifyDto dto) {
         String username = dto.getUsername();
         verifyUsername(username);
@@ -321,25 +370,32 @@ public class UserService {
     }
 
 
-    private User createOrVerifiedUserByEmailAndLoginType(String email, String loginType) {
-        try {
-            User findUser = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
-            if (findUser.getUserStatus().equals(UserStatus.INACTIVE)) {
-                throw new ServiceLogicException(ErrorCode.USER_INACTIVE);
-            } else if (!findUser.getLoginType().equals(LoginType.valueOf(loginType.toUpperCase()))) {
-                throw new ServiceLogicException(ErrorCode.USER_EXIST);
-            } else {
-                return findUser;
-            }
-        } catch (ServiceLogicException e) {
-            if (e.getErrorCode().equals(ErrorCode.NOT_FOUND_USER)) {
-                //회원가입
-                return userRepository.save(User.createEmptyUser(email, loginType));
-            } else {
-                throw e;
-            }
+    private User findOrCreateSocialUser(String email, LoginType loginType, String suggestedNickname) {
+        String normalizedEmail = normalizeEmail(email);
+        User linkedUser = userLoginProviderJpaRepository
+                .findByProviderAndProviderEmail(loginType, normalizedEmail)
+                .map(UserLoginProvider::getUser)
+                .orElse(null);
+
+        if (linkedUser != null) {
+            verifyUserAvailable(linkedUser);
+            return linkedUser;
         }
+
+        Optional<User> existingUser = userRepository.findByEmail(normalizedEmail);
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+            verifyUserAvailable(user);
+            linkProviderIfAbsent(user, loginType, normalizedEmail);
+            return user;
+        }
+
+        String username = generateAvailableUsername(normalizedEmail);
+        String nickname = buildSocialNickname(normalizedEmail, suggestedNickname);
+        User newUser = User.createEmptyUser(normalizedEmail, loginType.name(), username, nickname);
+        User savedUser = userRepository.save(newUser);
+        linkProviderIfAbsent(savedUser, loginType, normalizedEmail);
+        return savedUser;
     }
 
     private void sendVerificationEmail(String email) {
@@ -428,6 +484,7 @@ public class UserService {
         try {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
+            verifyUserAvailable(user);
             String requestRefreshToken = Optional.ofNullable(requestDto)
                     .map(RefreshTokenRequestDto::getRefreshToken)
                     .filter(token -> !token.isBlank())
@@ -454,7 +511,7 @@ public class UserService {
             user.touchLastAccessAt();
             userRepository.save(user);
             Token token = tokenizer.delegateToken(user);
-            return LoginApiResponseDto.of(token, user);
+            return LoginApiResponseDto.of(token, user, resolveLinkedProviders(user));
         } catch (ServiceLogicException e) {
             throw e;
         } catch (ExpiredJwtException e) {
@@ -480,7 +537,7 @@ public class UserService {
             UserImage userImage = UserImage.create(filename, url, userId);
             image = userRepository.saveUserImage(userImage);
         }
-        return UserResponseDto.of(findUser, image);
+        return UserResponseDto.of(findUser, image, resolveLinkedProviders(findUser));
     }
 
     public User findUserByUsername(String username) {
@@ -496,7 +553,7 @@ public class UserService {
     }
 
     public Optional<User> verifyEmail(String email) {
-        return userRepository.findByEmail(email);
+        return userRepository.findByEmail(normalizeEmail(email));
     }
 
     public User findUserEntity(Long userId) {
@@ -508,6 +565,13 @@ public class UserService {
         if (userStatus.equals(UserStatus.INACTIVE)) {
             throw new ServiceLogicException(ErrorCode.BLOCK_OR_INACTIVE_USER);
         }
+    }
+
+    private void verifyUserAvailable(User user) {
+        if (user.getMergedIntoUserId() != null) {
+            throw new ServiceLogicException(ErrorCode.BLOCK_OR_INACTIVE_USER);
+        }
+        verifyUserStatus(user.getUserStatus());
     }
 
     private UserImage firstUserImage(Long userId) {
@@ -522,7 +586,7 @@ public class UserService {
     private LoginApiResponseDto issueLoginResponse(User user) {
         User persistedUser = rotateUserSession(user);
         Token token = tokenizer.delegateToken(persistedUser);
-        return LoginApiResponseDto.of(token, persistedUser);
+        return LoginApiResponseDto.of(token, persistedUser, resolveLinkedProviders(persistedUser));
     }
 
     private User rotateUserSession(User user) {
@@ -534,6 +598,150 @@ public class UserService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private UserResponseDto toUserResponseDto(User user) {
+        return UserResponseDto.of(user, firstUserImage(user.getUserId()), resolveLinkedProviders(user));
+    }
+
+    private List<LoginType> resolveLinkedProviders(User user) {
+        Set<LoginType> providerSet = new LinkedHashSet<>();
+        providerSet.add(user.getLoginType());
+        userLoginProviderJpaRepository.findAllByUserUserId(user.getUserId()).stream()
+                .map(UserLoginProvider::getProvider)
+                .forEach(providerSet::add);
+        return new ArrayList<>(providerSet);
+    }
+
+    private void linkProviderIfAbsent(User user, LoginType provider, String providerEmail) {
+        String normalizedEmail = normalizeEmail(providerEmail);
+        boolean exists = userLoginProviderJpaRepository
+                .findByProviderAndProviderEmail(provider, normalizedEmail)
+                .isPresent();
+        if (exists) {
+            return;
+        }
+        userLoginProviderJpaRepository.save(UserLoginProvider.create(user, provider, normalizedEmail));
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase();
+    }
+
+    private String buildSocialNickname(String normalizedEmail, String suggestedNickname) {
+        if (!isBlank(suggestedNickname)) {
+            return suggestedNickname.trim();
+        }
+        return localPart(normalizedEmail);
+    }
+
+    private String generateAvailableUsername(String email) {
+        String base = slugifyUsername(localPart(email));
+        if (base.isBlank()) {
+            base = "user";
+        }
+        String candidate = base;
+        int suffix = 1;
+        while (userRepository.findByUsername(candidate).isPresent()) {
+            candidate = base + "-" + suffix++;
+        }
+        return candidate;
+    }
+
+    private String localPart(String email) {
+        String normalizedEmail = normalizeEmail(email);
+        int atIndex = normalizedEmail.indexOf("@");
+        if (atIndex <= 0) {
+            return normalizedEmail;
+        }
+        return normalizedEmail.substring(0, atIndex);
+    }
+
+    private String slugifyUsername(String source) {
+        String normalized = Normalizer.normalize(source == null ? "" : source, Normalizer.Form.NFKC)
+                .toLowerCase()
+                .replaceAll("[^a-z0-9._-]", "-")
+                .replaceAll("-{2,}", "-")
+                .replaceAll("^[._-]+|[._-]+$", "");
+        return normalized;
+    }
+
+    private User selectCanonicalUser(List<User> users) {
+        return users.stream()
+                .sorted(Comparator
+                        .comparingInt((User user) -> userStatusRank(user.getUserStatus()))
+                        .thenComparing(User::getCreateAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(User::getUserId))
+                .findFirst()
+                .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND_USER));
+    }
+
+    private int userStatusRank(UserStatus status) {
+        if (status == UserStatus.ACTIVE) {
+            return 0;
+        }
+        if (status != UserStatus.WAIT_INFO && status != UserStatus.INACTIVE) {
+            return 1;
+        }
+        if (status == UserStatus.WAIT_INFO) {
+            return 2;
+        }
+        return 3;
+    }
+
+    private int moveAiToolHistories(User fromUser, User toUser) {
+        List<AiToolHistory> histories = aiToolHistoryJpaRepository.findAllByUserUserId(fromUser.getUserId());
+        histories.forEach(history -> history.setUser(toUser));
+        aiToolHistoryJpaRepository.saveAll(histories);
+        return histories.size();
+    }
+
+    private int moveIaRecommendations(User fromUser, User toUser) {
+        List<AiIARecommendation> recommendations = aiIARecommendationJpaRepository.findAllByUserUserId(fromUser.getUserId());
+        recommendations.forEach(recommendation -> recommendation.setUser(toUser));
+        aiIARecommendationJpaRepository.saveAll(recommendations);
+        return recommendations.size();
+    }
+
+    private int moveQuizSessions(User fromUser, User toUser) {
+        List<QuizSession> sessions = quizSessionJpaRepository.findAllByUserUserId(fromUser.getUserId());
+        sessions.forEach(session -> session.setUser(toUser));
+        quizSessionJpaRepository.saveAll(sessions);
+        return sessions.size();
+    }
+
+    private int moveDescriptiveAnswers(User fromUser, User toUser) {
+        List<AiDescriptiveAnswer> answers = aiDescriptiveAnswerJpaRepository.findAllByUserUserId(fromUser.getUserId());
+        answers.forEach(answer -> answer.setUser(toUser));
+        aiDescriptiveAnswerJpaRepository.saveAll(answers);
+        return answers.size();
+    }
+
+    private int moveVoiceFeedbacks(User fromUser, User toUser) {
+        List<VoiceFeedback> feedbacks = voiceFeedbackJpaRepository.findAllByAuthorId(fromUser.getUserId());
+        String canonicalAuthor = isBlank(toUser.getNickName()) ? toUser.getUsername() : toUser.getNickName();
+        feedbacks.forEach(feedback -> {
+            feedback.setAuthorId(toUser.getUserId());
+            feedback.setAuthor(canonicalAuthor);
+        });
+        voiceFeedbackJpaRepository.saveAll(feedbacks);
+        return feedbacks.size();
+    }
+
+    private void moveProviderLinks(User fromUser, User toUser) {
+        List<UserLoginProvider> providers = userLoginProviderJpaRepository.findAllByUserUserId(fromUser.getUserId());
+        for (UserLoginProvider provider : providers) {
+            Optional<UserLoginProvider> existing = userLoginProviderJpaRepository.findByProviderAndProviderEmail(
+                    provider.getProvider(),
+                    provider.getProviderEmail()
+            );
+            if (existing.isPresent() && existing.get().getUser().getUserId().equals(toUser.getUserId())) {
+                userLoginProviderJpaRepository.delete(provider);
+                continue;
+            }
+            provider.setUser(toUser);
+            userLoginProviderJpaRepository.save(provider);
+        }
     }
 
 

@@ -11,6 +11,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -47,12 +49,18 @@ public class UserResponseDto {
 
     private LoginType loginType;
 
+    private List<LoginType> linkedProviders;
+
     private Authority authority;
 
     private UserImageResponseDto userImage;
 
 
     public static UserResponseDto of(User user, UserImage userImage) {
+        return of(user, userImage, List.of(user.getLoginType()));
+    }
+
+    public static UserResponseDto of(User user, UserImage userImage, List<LoginType> linkedProviders) {
         UserResponseDtoBuilder userBuilder = UserResponseDto.builder()
                 .userId(user.getUserId())
                 .username(user.getUsername())
@@ -69,6 +77,7 @@ public class UserResponseDto {
                 .marketingTermsCheck(user.isMarketingTermsCheck())
                 .userStatus(user.getUserStatus())
                 .loginType(user.getLoginType())
+                .linkedProviders(linkedProviders)
                 .authority(user.getAuthority());
         if (userImage != null) {
             userBuilder.userImage(UserImageResponseDto.of(userImage));

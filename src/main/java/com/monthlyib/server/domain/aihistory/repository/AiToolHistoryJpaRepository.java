@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface AiToolHistoryJpaRepository extends JpaRepository<AiToolHistory, Long> {
@@ -15,4 +16,6 @@ public interface AiToolHistoryJpaRepository extends JpaRepository<AiToolHistory,
     Page<AiToolHistory> findByUserUserIdAndToolType(Long userId, AiToolType toolType, Pageable pageable);
 
     Optional<AiToolHistory> findByAiToolHistoryIdAndUserUserId(Long aiToolHistoryId, Long userId);
+
+    List<AiToolHistory> findAllByUserUserId(Long userId);
 }

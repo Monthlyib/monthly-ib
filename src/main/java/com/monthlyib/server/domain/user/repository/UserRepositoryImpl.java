@@ -20,7 +20,17 @@ public class UserRepositoryImpl implements UserRepository {
 
     @Override
     public Optional<User> findByEmail(String email) {
-        return userJpaRepository.findByEmail(email);
+        return userJpaRepository.findByEmailIgnoreCase(email);
+    }
+
+    @Override
+    public List<User> findAllByEmail(String email) {
+        return userJpaRepository.findAllByEmailIgnoreCase(email);
+    }
+
+    @Override
+    public List<String> findDuplicateNormalizedEmails() {
+        return userJpaRepository.findDuplicateNormalizedEmails();
     }
 
     @Override

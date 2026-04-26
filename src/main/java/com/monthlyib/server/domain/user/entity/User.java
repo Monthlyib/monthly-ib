@@ -17,7 +17,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Setter
 @Getter
@@ -43,6 +42,8 @@ public class User extends Auditable {
 
     @Column(nullable = false, unique = true)
     private String email;
+
+    private Long mergedIntoUserId;
 
     @Column(nullable = false)
     private String birth;
@@ -132,12 +133,11 @@ public class User extends Auditable {
                 : new ArrayList<>(Authority.USER.getStringRole());
     }
 
-    public static User createEmptyUser(String email, String loginType) {
-        String uuid = UUID.randomUUID().toString().substring(10);
+    public static User createEmptyUser(String email, String loginType, String username, String nickName) {
         User user = User.builder()
-                .username(uuid)
-                .nickName(uuid)
-                .password(uuid)
+                .username(username)
+                .nickName(nickName)
+                .password(java.util.UUID.randomUUID().toString())
                 .email(email)
                 .birth("0")
                 .school("정보 없음")

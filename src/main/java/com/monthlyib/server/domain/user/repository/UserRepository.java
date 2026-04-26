@@ -12,6 +12,10 @@ public interface UserRepository {
 
     Optional<User> findByEmail(String email);
 
+    List<User> findAllByEmail(String email);
+
+    List<String> findDuplicateNormalizedEmails();
+
     Optional<User> findByUsername(String username);
 
     User save(User user);
