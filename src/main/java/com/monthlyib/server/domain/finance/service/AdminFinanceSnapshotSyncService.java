@@ -119,6 +119,9 @@ public class AdminFinanceSnapshotSyncService {
             if (!exchangeRateResult.available()) {
                 warnings.add(exchangeRateResult.warningMessage());
                 finalStatus = FinanceJobStatus.PARTIAL;
+            } else if (hasWarning(exchangeRateResult)) {
+                warnings.add(exchangeRateResult.warningMessage());
+                finalStatus = FinanceJobStatus.PARTIAL;
             }
 
             Map<LocalDate, RevenueDailyAggregation> revenueByDate = buildRevenueMap(startDate, endDate);
@@ -173,6 +176,9 @@ public class AdminFinanceSnapshotSyncService {
             partial = true;
         }
         if (!exchangeRateResult.available()) {
+            warnings.add(exchangeRateResult.warningMessage());
+            partial = true;
+        } else if (hasWarning(exchangeRateResult)) {
             warnings.add(exchangeRateResult.warningMessage());
             partial = true;
         }
@@ -286,7 +292,7 @@ public class AdminFinanceSnapshotSyncService {
                         .provider(provider)
                         .breakdownKey(item.label())
                         .amountUsd(scaleUsd(item.usdAmount()))
-                        .amountKrw(rate == null ? null : scale(item.usdAmount().multiply(rate)))
+                        .amountKrw(rate == null ? null : scale(scaleUsd(item.usdAmount()).multiply(rate)))
                         .build())
                 .toList();
         breakdownRepository.saveAll(rows);
@@ -348,6 +354,10 @@ public class AdminFinanceSnapshotSyncService {
         } else {
             snapshot.setRevenueStatus(status);
         }
+    }
+
+    private boolean hasWarning(ProviderLoadResult<?> result) {
+        return result.warningMessage() != null && !result.warningMessage().isBlank();
     }
 
     private SyncWindow buildDefaultWindow() {

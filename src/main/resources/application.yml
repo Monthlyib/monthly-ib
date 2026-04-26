@@ -122,3 +122,4 @@ finance:
     base-url: https://api.openai.com/v1
   exchange:
     base-url: https://api.frankfurter.app
+    fallback-usd-krw-rate: ${FINANCE_EXCHANGE_FALLBACK_USD_KRW_RATE:1400}
