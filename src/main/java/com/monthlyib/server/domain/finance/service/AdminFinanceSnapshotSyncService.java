@@ -50,6 +50,7 @@ import static com.monthlyib.server.constant.ErrorCode.ACCESS_DENIED;
 public class AdminFinanceSnapshotSyncService {
 
     private static final int DEFAULT_SYNC_MONTHS = 12;
+    private static final int BREAKDOWN_KEY_MAX_LENGTH = 255;
     private static final String REVENUE_BREAKDOWN_CONFIRMED = "SUBSCRIBE:CONFIRMED";
     private static final String REVENUE_BREAKDOWN_REFUNDED = "SUBSCRIBE:REFUNDED";
 
@@ -286,13 +287,19 @@ public class AdminFinanceSnapshotSyncService {
             return;
         }
 
-        List<AdminFinanceDailyBreakdown> rows = breakdownAmounts.stream()
-                .map(item -> AdminFinanceDailyBreakdown.builder()
+        Map<String, BigDecimal> aggregatedUsdAmounts = new LinkedHashMap<>();
+        for (FinanceBreakdownAmount item : breakdownAmounts) {
+            String key = normalizeBreakdownKey(item.label());
+            aggregatedUsdAmounts.merge(key, scaleUsd(item.usdAmount()), BigDecimal::add);
+        }
+
+        List<AdminFinanceDailyBreakdown> rows = aggregatedUsdAmounts.entrySet().stream()
+                .map(entry -> AdminFinanceDailyBreakdown.builder()
                         .snapshotDate(snapshotDate)
                         .provider(provider)
-                        .breakdownKey(item.label())
-                        .amountUsd(scaleUsd(item.usdAmount()))
-                        .amountKrw(rate == null ? null : scale(scaleUsd(item.usdAmount()).multiply(rate)))
+                        .breakdownKey(entry.getKey())
+                        .amountUsd(scaleUsd(entry.getValue()))
+                        .amountKrw(rate == null ? null : scale(scaleUsd(entry.getValue()).multiply(rate)))
                         .build())
                 .toList();
         breakdownRepository.saveAll(rows);
@@ -358,6 +365,17 @@ public class AdminFinanceSnapshotSyncService {
 
     private boolean hasWarning(ProviderLoadResult<?> result) {
         return result.warningMessage() != null && !result.warningMessage().isBlank();
+    }
+
+    private String normalizeBreakdownKey(String label) {
+        String normalized = Optional.ofNullable(label)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .orElse("기타");
+        if (normalized.length() <= BREAKDOWN_KEY_MAX_LENGTH) {
+            return normalized;
+        }
+        return normalized.substring(0, BREAKDOWN_KEY_MAX_LENGTH);
     }
 
     private SyncWindow buildDefaultWindow() {
