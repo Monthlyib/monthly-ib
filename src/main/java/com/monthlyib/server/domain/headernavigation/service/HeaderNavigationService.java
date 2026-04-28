@@ -12,9 +12,11 @@ import com.monthlyib.server.domain.headernavigation.entity.HeaderNavigationPage;
 import com.monthlyib.server.domain.headernavigation.repository.HeaderNavigationPageJpaRepository;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.exception.ServiceLogicException;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
@@ -47,6 +49,8 @@ public class HeaderNavigationService {
     private final HeaderNavigationPageJpaRepository headerNavigationPageJpaRepository;
     private final ObjectMapper objectMapper;
 
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "headerNavigationPublicConfig", key = "'" + PAGE_KEY + "'")
     public HeaderNavigationPublicResponseDto getPublishedConfig() {
         return headerNavigationPageJpaRepository.findByPageKey(PAGE_KEY)
                 .map(this::toPublicResponse)
@@ -57,6 +61,7 @@ public class HeaderNavigationService {
                         .build());
     }
 
+    @Transactional(readOnly = true)
     public HeaderNavigationAdminResponseDto getAdminConfig(User user) {
         validateAdmin(user);
         return headerNavigationPageJpaRepository.findByPageKey(PAGE_KEY)
@@ -69,6 +74,7 @@ public class HeaderNavigationService {
                         .build());
     }
 
+    @CacheEvict(cacheNames = "headerNavigationPublicConfig", key = "'" + PAGE_KEY + "'")
     public HeaderNavigationAdminResponseDto saveConfig(HeaderNavigationConfigDto requestDto, User user) {
         validateAdmin(user);
 

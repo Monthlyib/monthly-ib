@@ -17,7 +17,12 @@ import java.util.Optional;
 @Setter
 @Getter
 @Entity
-@Table(name = "subscribe_user")
+@Table(
+        name = "subscribe_user",
+        indexes = {
+                @Index(name = "idx_subscribe_user_user_status_created", columnList = "user_id,subscribe_status,create_at")
+        }
+)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

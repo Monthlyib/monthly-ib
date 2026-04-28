@@ -30,8 +30,10 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -48,12 +50,16 @@ public class TutoringService {
     private final GoogleCalendarService googleCalendarService;
 
 
+    @Transactional(readOnly = true)
     public TutoringSimpleResponseDto findTutoringSimple(TutoringSearchDto dto) {
         LocalDate date = Optional.ofNullable(dto.getDate()).orElse(LocalDate.now());
+        Map<String, List<Tutoring>> tutoringBySlot = tutoringRepository.findAllEntitiesByDate(date)
+                .stream()
+                .collect(Collectors.groupingBy(tutoring -> slotKey(tutoring.getHour(), tutoring.getMinute())));
 
         List<TutoringRemainDto> response = new ArrayList<>();
         Arrays.stream(TutoringTime.values()).forEach(t -> {
-            List<Tutoring> findTutoring = tutoringRepository.findAllByDate(date, t.getHour(), t.getMinute());
+            List<Tutoring> findTutoring = tutoringBySlot.getOrDefault(slotKey(t.getHour(), t.getMinute()), List.of());
             int requestTutoring = findTutoring.size();
             int totalTutoring = 3;
             TutoringRemainDto tutoringRemainDto = TutoringRemainDto.of(
@@ -69,6 +75,7 @@ public class TutoringService {
         return TutoringSimpleResponseDto.of(dto.getDate(), response);
     }
 
+    @Transactional(readOnly = true)
     public TutoringDetailResponseDto findTutoringDetail(TutoringAdminSearchDto dto, User user) {
         Authority authority = user.getAuthority();
         Long userId = null;
@@ -85,14 +92,15 @@ public class TutoringService {
         return TutoringDetailResponseDto.of(dto.getDate(), PageResponseDto.of(response, response.getContent(), Result.ok()));
     }
 
+    @Transactional(readOnly = true)
     public List<TutoringResponseDto> findTimeTutoring(TutoringTimeSearchDto dto) {
         return tutoringRepository.findAllByDate(dto.getDate(), dto.getHour(), dto.getMinute())
                 .stream().map(TutoringResponseDto::of).toList();
     }
 
     public TutoringResponseDto createTutoring(TutoringPostRequestDto dto, User user) {
-        List<Tutoring> find = tutoringRepository.findAllByDate(dto.getDate(), dto.getHour(), dto.getMinute());
-        if (find.size() == 3) {
+        long currentReservations = tutoringRepository.countByDate(dto.getDate(), dto.getHour(), dto.getMinute());
+        if (currentReservations >= 3) {
             throw new ServiceLogicException(ErrorCode.BAD_REQUEST);
         }
         Long subscribeUserId = subscribeService.consumeTutoringAccess(user);
@@ -186,5 +194,9 @@ public class TutoringService {
             return;
         }
         publisher.publishEvent(new TutoringCalendarSyncEvent(this, tutoring.getTutoringId()));
+    }
+
+    private String slotKey(int hour, int minute) {
+        return hour + ":" + minute;
     }
 }

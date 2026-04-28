@@ -36,6 +36,7 @@ public class QuestionService {
 
     private final ApplicationEventPublisher publisher;
 
+    @Transactional(readOnly = true)
     public Page<QuestionResponseDto> findAllQuestion(int page, int size, QuestionSearchDto searchDto) {
         return questionRepository.findAll(
                 PageRequest.of(page, size, Sort.by("createAt").descending()),
@@ -43,6 +44,7 @@ public class QuestionService {
         );
     }
 
+    @Transactional(readOnly = true)
     public QuestionResponseDto findQuestion(Long questionId) {
         Question findQuestion = questionRepository.findQuestionByQuestionId(questionId)
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
@@ -51,6 +53,7 @@ public class QuestionService {
         return QuestionResponseDto.of(findQuestion, answer);
     }
 
+    @Transactional(readOnly = true)
     public Page<QuestionResponseDto> findAllQuestionByUserId(
             int page,
             int size,
@@ -64,6 +67,7 @@ public class QuestionService {
         );
     }
 
+    @Transactional(readOnly = true)
     public Page<QuestionResponseDto> findQuestionPageForUser(
             int page,
             int size,

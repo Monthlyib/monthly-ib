@@ -8,9 +8,11 @@ import com.monthlyib.server.domain.calculatorrecommendation.entity.CalculatorRec
 import com.monthlyib.server.domain.calculatorrecommendation.repository.CalculatorRecommendationPageJpaRepository;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.exception.ServiceLogicException;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
@@ -69,6 +71,8 @@ public class CalculatorRecommendationService {
     private final CalculatorRecommendationPageJpaRepository calculatorRecommendationPageJpaRepository;
     private final ObjectMapper objectMapper;
 
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "calculatorRecommendationPublicConfig", key = "'" + PAGE_KEY + "'")
     public CalculatorRecommendationPublicResponseDto getPublishedConfig() {
         return calculatorRecommendationPageJpaRepository.findByPageKey(PAGE_KEY)
                 .map(this::toPublicResponse)
@@ -79,6 +83,7 @@ public class CalculatorRecommendationService {
                         .build());
     }
 
+    @Transactional(readOnly = true)
     public CalculatorRecommendationAdminResponseDto getAdminConfig() {
         return calculatorRecommendationPageJpaRepository.findByPageKey(PAGE_KEY)
                 .map(this::toAdminResponse)
@@ -90,6 +95,7 @@ public class CalculatorRecommendationService {
                         .build());
     }
 
+    @CacheEvict(cacheNames = "calculatorRecommendationPublicConfig", key = "'" + PAGE_KEY + "'")
     public CalculatorRecommendationAdminResponseDto saveConfig(CalculatorRecommendationConfigDto requestDto, User user) {
         CalculatorRecommendationConfigDto sanitized = sanitizeConfig(requestDto);
         String json = writeConfig(sanitized);

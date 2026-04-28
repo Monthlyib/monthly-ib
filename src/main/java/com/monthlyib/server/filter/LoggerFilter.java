@@ -7,8 +7,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.util.ContentCachingRequestWrapper;
-import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.io.IOException;
 
@@ -23,63 +21,42 @@ public class LoggerFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain chain
     ) throws ServletException, IOException {
-        String requestURI = request.getRequestURI();
-        if (!requestURI.contains("/api/sse")) {
-            ContentCachingRequestWrapper req = new ContentCachingRequestWrapper((HttpServletRequest) request);
-            ContentCachingResponseWrapper res = new ContentCachingResponseWrapper((HttpServletResponse) response);
-
-            chain.doFilter(req, res);
-
-            // Request 정보
-            StringBuilder requestHeaders = new StringBuilder();
-            req.getHeaderNames().asIterator().forEachRemaining(
-                    key -> {
-                        String value = req.getHeader(key);
-                        requestHeaders.append("[").append(key).append(" : ").append(value).append("] ").append(" , ");
-
-                    }
-            );
-            String requestBody = new String(req.getContentAsByteArray());
-            if (requestBody.length() > 200) {
-                requestBody = requestBody.substring(0, 200);
-            }
-            String URI = req.getRequestURI();
-            String method = req.getMethod();
-            boolean checkedUri = !(URI.contains("/actuator") || URI.equals("/")
-                    || URI.contains("/docs")
-                    || URI.contains("/vendor")
-                    || URI.contains("/alarm")
-                    || URI.contains("css")
-                    || URI.contains("js")
-                    || URI.contains("images")
-            );
-            if (checkedUri) {
-                log.info(">>>>>> [Request] URI : {} , Method : {} , Header : {} ,  body : {}, IP : {}, Device : {}", URI, method, requestHeaders, requestBody, WebUtils.ip(), WebUtils.device());
-            }
-
-            StringBuilder responseHeaders = new StringBuilder();
-            res.getHeaderNames().forEach(
-                    key -> {
-                        String value = res.getHeader(key);
-                        responseHeaders.append("[").append(key).append(" : ").append(value).append("] ").append(" , ");
-                    }
-            );
-            String responseBody = new String(res.getContentAsByteArray());
-            if (responseBody.length() > 200) {
-                responseBody = responseBody.substring(0, 200);
-            }
-            if (checkedUri) {
-                log.info("<<<<<< [Response] URI : {} , Method : {} Header : {} ,  body : {}", URI, method, responseHeaders, responseBody);
-            }
-
-            // Response 를 스위칭 했기에 다시 카피 해준다
-            res.copyBodyToResponse();
-        } else {
+        String uri = request.getRequestURI();
+        if (!shouldLog(uri)) {
             chain.doFilter(request, response);
+            return;
         }
-        //ServletRequest 는 한번 스위칭 하면 후에 사용할수 없음 그래서 Wrapper로 감싸준다
 
-
+        long startNanos = System.nanoTime();
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+            log.info(
+                    "[Access] method={} uri={} status={} elapsedMs={} ip={} device={}",
+                    request.getMethod(),
+                    uri,
+                    response.getStatus(),
+                    elapsedMs,
+                    WebUtils.ip(),
+                    WebUtils.device()
+            );
+        }
     }
 
+    private boolean shouldLog(String uri) {
+        return !(uri.contains("/api/sse")
+                || uri.contains("/actuator")
+                || uri.equals("/")
+                || uri.contains("/docs")
+                || uri.contains("/api-docs")
+                || uri.contains("/swagger")
+                || uri.contains("/vendor")
+                || uri.contains("/alarm")
+                || uri.contains("css")
+                || uri.contains("js")
+                || uri.contains("images")
+                || uri.contains("favicon")
+                || uri.contains("icon"));
+    }
 }

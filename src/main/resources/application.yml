@@ -36,15 +36,9 @@ spring:
       host: ${AWS_ELASTICACHE_END_POINT}
       port: 16379
 logging.level:
-  org.hibernate.SQL: trace
-  org:
-    hibernate:
-      type:
-        descriptor:
-          sql:
-            org.hibernate.type.descriptor.sql.BasicBinder : trace
-    springframework:
-      web.servlet : trace
+  org.hibernate.SQL: warn
+  org.hibernate.orm.jdbc.bind: warn
+  org.springframework.web.servlet: info
 mail:
   smtp:
     host: smtp.gmail.com

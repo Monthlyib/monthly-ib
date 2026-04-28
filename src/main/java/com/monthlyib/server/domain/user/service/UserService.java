@@ -32,7 +32,6 @@ import com.monthlyib.server.file.service.FileService;
 import com.monthlyib.server.mail.service.EmailSender;
 import com.monthlyib.server.openapi.user.dto.*;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.transaction.Transactional;
 import io.jsonwebtoken.ExpiredJwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,14 +42,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailSendException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
@@ -105,11 +107,12 @@ public class UserService {
     @Value("${mail.template.name.user.password-reset}")
     private String passwordResetTemplateName;
 
+    @Transactional(readOnly = true)
     public Page<UserResponseDto> findAll(int page, User user) {
         verifyAdmin(user);
 
-        return userRepository.findAll(PageRequest.of(page, 15, Sort.by("createAt").descending()))
-                .map(this::toUserResponseDto);
+        Page<User> users = userRepository.findAll(PageRequest.of(page, 15, Sort.by("createAt").descending()));
+        return toUserResponseDtoPage(users);
     }
 
 
@@ -163,6 +166,7 @@ public class UserService {
         return loginResponse;
     }
 
+    @Transactional(readOnly = true)
     public UserResponseDto findUserById(Long userId, User user) {
         verifyAdminOrSelf(user, userId);
 
@@ -604,10 +608,53 @@ public class UserService {
         return UserResponseDto.of(user, firstUserImage(user.getUserId()), resolveLinkedProviders(user));
     }
 
+    private Page<UserResponseDto> toUserResponseDtoPage(Page<User> users) {
+        List<Long> userIds = users.getContent().stream()
+                .map(User::getUserId)
+                .toList();
+        Map<Long, UserImage> imageMap = firstUserImageMap(userIds);
+        Map<Long, List<UserLoginProvider>> providerMap = linkedProviderMap(userIds);
+
+        return users.map(user -> UserResponseDto.of(
+                user,
+                imageMap.get(user.getUserId()),
+                resolveLinkedProviders(user, providerMap.getOrDefault(user.getUserId(), List.of()))
+        ));
+    }
+
+    private Map<Long, UserImage> firstUserImageMap(List<Long> userIds) {
+        Map<Long, UserImage> result = new HashMap<>();
+        if (userIds.isEmpty()) {
+            return result;
+        }
+
+        userRepository.findAllUserImageByUserIds(userIds).forEach(image ->
+                result.putIfAbsent(image.getUserId(), image)
+        );
+        return result;
+    }
+
+    private Map<Long, List<UserLoginProvider>> linkedProviderMap(List<Long> userIds) {
+        Map<Long, List<UserLoginProvider>> result = new HashMap<>();
+        if (userIds.isEmpty()) {
+            return result;
+        }
+
+        userLoginProviderJpaRepository.findAllByUserUserIdIn(userIds).forEach(provider -> {
+            Long userId = provider.getUser().getUserId();
+            result.computeIfAbsent(userId, ignored -> new ArrayList<>()).add(provider);
+        });
+        return result;
+    }
+
     private List<LoginType> resolveLinkedProviders(User user) {
+        return resolveLinkedProviders(user, userLoginProviderJpaRepository.findAllByUserUserId(user.getUserId()));
+    }
+
+    private List<LoginType> resolveLinkedProviders(User user, List<UserLoginProvider> linkedProviders) {
         Set<LoginType> providerSet = new LinkedHashSet<>();
         providerSet.add(user.getLoginType());
-        userLoginProviderJpaRepository.findAllByUserUserId(user.getUserId()).stream()
+        linkedProviders.stream()
                 .map(UserLoginProvider::getProvider)
                 .forEach(providerSet::add);
         return new ArrayList<>(providerSet);

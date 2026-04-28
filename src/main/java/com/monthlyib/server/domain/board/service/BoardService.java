@@ -38,9 +38,11 @@ public class BoardService {
 
     private final UserService userService;
 
+    @Transactional(readOnly = true)
     public Page<BoardSimpleResponseDto> findAllBoardLis(int page, BoardSearchDto dto) {
         return boardRepository.findAllBoards(PageRequest.of(page, 10, Sort.by("createAt").descending()), dto);
     }
+    @Transactional(readOnly = true)
     public Page<BoardSimpleResponseDto> findAllBoardListForUser(int page, BoardSearchDto dto, Long userId) {
         return boardRepository.findAllBoardsByUserId(PageRequest.of(page, 10, Sort.by("createAt").descending()), dto, userId);
     }

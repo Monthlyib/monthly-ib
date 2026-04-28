@@ -64,6 +64,14 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
+    public List<UserImage> findAllUserImageByUserIds(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        return userImageJpaRepository.findAllByUserIdIn(userIds);
+    }
+
+    @Override
     public void deleteAllUserImage(Long userId) {
         userImageJpaRepository.deleteAllByUserId(userId);
     }

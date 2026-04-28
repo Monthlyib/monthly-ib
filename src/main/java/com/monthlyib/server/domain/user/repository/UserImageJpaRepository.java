@@ -9,5 +9,7 @@ public interface UserImageJpaRepository extends JpaRepository<UserImage, Long> {
 
     List<UserImage> findAllByUserId(Long userId);
 
+    List<UserImage> findAllByUserIdIn(List<Long> userIds);
+
     void deleteAllByUserId(Long userId);
 }

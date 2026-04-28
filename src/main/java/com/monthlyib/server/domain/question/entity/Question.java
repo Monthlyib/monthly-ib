@@ -14,7 +14,13 @@ import java.util.Optional;
 @Setter
 @Getter
 @Entity
-@Table(name = "questions")
+@Table(
+        name = "questions",
+        indexes = {
+                @Index(name = "idx_questions_author_created", columnList = "author_id,create_at"),
+                @Index(name = "idx_questions_status_created", columnList = "question_status,create_at")
+        }
+)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

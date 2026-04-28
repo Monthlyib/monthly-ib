@@ -9,6 +9,8 @@ import com.monthlyib.server.domain.tutoring.repository.TutoringEmailTemplateJpaR
 import com.monthlyib.server.exception.ServiceLogicException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -26,6 +28,8 @@ public class TutoringEmailTemplateService {
 
     private final TutoringEmailTemplateJpaRepository repository;
 
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tutoringEmailTemplates", key = "'all'")
     public List<TutoringEmailTemplateDto> findAll() {
         return repository.findAll().stream()
                 .map(TutoringEmailTemplateDto::of)
@@ -42,6 +46,7 @@ public class TutoringEmailTemplateService {
                 });
     }
 
+    @CacheEvict(cacheNames = "tutoringEmailTemplates", allEntries = true)
     public TutoringEmailTemplateDto create(TutoringEmailTemplatePatchDto dto) {
         TutoringEmailTemplate entity = TutoringEmailTemplate.builder()
                 .subject(dto.getSubject())
@@ -56,6 +61,7 @@ public class TutoringEmailTemplateService {
         return TutoringEmailTemplateDto.of(repository.save(entity));
     }
 
+    @CacheEvict(cacheNames = "tutoringEmailTemplates", allEntries = true)
     public TutoringEmailTemplateDto update(Long id, TutoringEmailTemplatePatchDto dto) {
         TutoringEmailTemplate entity = repository.findById(id)
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.NOT_FOUND));
@@ -76,10 +82,12 @@ public class TutoringEmailTemplateService {
         return TutoringEmailTemplateDto.of(repository.save(ensureDefaults(entity)));
     }
 
+    @CacheEvict(cacheNames = "tutoringEmailTemplates", allEntries = true)
     public void delete(Long id) {
         repository.deleteById(id);
     }
 
+    @CacheEvict(cacheNames = "tutoringEmailTemplates", allEntries = true)
     public TutoringEmailTemplateDto activate(Long id) {
         deactivateAll();
         TutoringEmailTemplate entity = repository.findById(id)

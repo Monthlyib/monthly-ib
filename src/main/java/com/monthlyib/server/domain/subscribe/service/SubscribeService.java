@@ -14,13 +14,15 @@ import com.monthlyib.server.domain.subscribe.repository.SubscribeRepository;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.user.service.UserService;
 import com.monthlyib.server.exception.ServiceLogicException;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -35,6 +37,8 @@ public class SubscribeService {
 
     private final UserService userService;
 
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "subscribePlans", key = "'all'")
     public List<SubscribeResponseDto> findAllSubscribe() {
         return subscribeRepository.findAllSubscribes()
                 .stream().map(SubscribeResponseDto::of).toList();
@@ -61,12 +65,14 @@ public class SubscribeService {
         return SubscribeUserResponseDto.of(saveSubUser);
     }
 
+    @Transactional(readOnly = true)
     public Page<SubscribeUserResponseDto> findAllSubscribeUser(Long userId, int page, User user) {
         verifyAdminOrSelf(user, userId);
         return subscribeRepository.findAllSubscribeByUserId(userId, PageRequest.of(page, 10, Sort.by("createAt").descending()))
                 .map(SubscribeUserResponseDto::of);
     }
 
+    @Transactional(readOnly = true)
     public SubscribeUserResponseDto findActiveSubscribeUser(Long userId, User user) {
         verifyAdminOrSelf(user, userId);
         return subscribeRepository.findSubscribeUserByUserIdAndStatus(userId, SubscribeStatus.ACTIVE)
@@ -142,12 +148,14 @@ public class SubscribeService {
     }
 
 
+    @CacheEvict(cacheNames = "subscribePlans", allEntries = true)
     public SubscribeResponseDto createSubscribe(SubscribePostDto dto, User user) {
         verifyAdmin(user);
         Subscribe newSub = Subscribe.create(dto);
         return SubscribeResponseDto.of(subscribeRepository.save(newSub));
     }
 
+    @CacheEvict(cacheNames = "subscribePlans", allEntries = true)
     public SubscribeResponseDto updateSubscribe(Long subscribeId, SubscribePostDto dto, User user) {
         verifyAdmin(user);
         Subscribe find = verifySubscribe(subscribeId);
@@ -156,6 +164,7 @@ public class SubscribeService {
 
     }
 
+    @CacheEvict(cacheNames = "subscribePlans", allEntries = true)
     public void deleteSubscribe(Long subscribeId, User user) {
         verifyAdmin(user);
         subscribeRepository.deleteById(subscribeId);

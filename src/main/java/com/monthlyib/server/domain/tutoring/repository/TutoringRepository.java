@@ -14,8 +14,11 @@ public interface TutoringRepository {
 
     List<Tutoring> findAllByDate(LocalDate date, int hour, int minute);
 
+    List<Tutoring> findAllEntitiesByDate(LocalDate date);
+
     List<TutoringResponseDto> findAllByDate(LocalDate date);
 
+    long countByDate(LocalDate date, int hour, int minute);
 
     Page<TutoringResponseDto> findAllDtoByDate(LocalDate date, TutoringStatus status, Long userId, Pageable pageable);
 

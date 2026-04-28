@@ -36,8 +36,18 @@ public class TutoringRepositoryImpl extends QuerydslRepositorySupport implements
     }
 
     @Override
+    public List<Tutoring> findAllEntitiesByDate(LocalDate date) {
+        return tutoringJpaRepository.findAllByDate(date);
+    }
+
+    @Override
     public List<TutoringResponseDto> findAllByDate(LocalDate date) {
         return List.of();
+    }
+
+    @Override
+    public long countByDate(LocalDate date, int hour, int minute) {
+        return tutoringJpaRepository.countByDateAndHourAndMinute(date, hour, minute);
     }
 
     @Override

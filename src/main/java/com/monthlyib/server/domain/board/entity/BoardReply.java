@@ -12,7 +12,12 @@ import java.util.Set;
 @Setter
 @Getter
 @Entity
-@Table(name = "board_replys")
+@Table(
+        name = "board_replys",
+        indexes = {
+                @Index(name = "idx_board_replys_board", columnList = "board_id")
+        }
+)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

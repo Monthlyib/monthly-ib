@@ -12,7 +12,12 @@ import java.util.Optional;
 @Setter
 @Getter
 @Entity
-@Table(name = "user_image")
+@Table(
+        name = "user_image",
+        indexes = {
+                @Index(name = "idx_user_image_user", columnList = "user_id")
+        }
+)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

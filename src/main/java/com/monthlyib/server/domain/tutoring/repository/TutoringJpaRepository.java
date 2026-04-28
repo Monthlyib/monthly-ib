@@ -12,6 +12,8 @@ public interface TutoringJpaRepository extends JpaRepository<Tutoring, Long> {
     List<Tutoring> findAllByDate(LocalDate date);
     List<Tutoring> findAllByDateAndHourAndMinute(LocalDate date, int hour, int minute);
 
+    long countByDateAndHourAndMinute(LocalDate date, int hour, int minute);
+
     long countByRequestUserId(Long requestUserId);
 
     long countByRequestUserIdAndTutoringStatus(Long requestUserId, TutoringStatus tutoringStatus);

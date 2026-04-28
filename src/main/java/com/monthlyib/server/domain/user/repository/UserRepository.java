@@ -28,5 +28,7 @@ public interface UserRepository {
 
     List<UserImage> findAllUserImage(Long userId);
 
+    List<UserImage> findAllUserImageByUserIds(List<Long> userIds);
+
     void deleteAllUserImage(Long userId);
 }

@@ -10,11 +10,13 @@ import com.monthlyib.server.domain.home.repository.HomeLayoutPageJpaRepository;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.exception.ServiceLogicException;
 import com.monthlyib.server.file.service.FileService;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -66,13 +68,20 @@ public class HomeLayoutService {
     private final ObjectMapper objectMapper;
     private final FileService fileService;
 
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "homePublishedLayout", key = "'" + PAGE_KEY + "'")
     public HomeLayoutPublishedResponseDto getPublishedLayout() {
-        HomeLayoutPage page = ensurePage();
-        return HomeLayoutPublishedResponseDto.builder()
-                .pageKey(page.getPageKey())
-                .layout(readLayout(page.getPublishedJson()))
-                .publishedAt(page.getPublishedAt())
-                .build();
+        return homeLayoutPageJpaRepository.findByPageKey(PAGE_KEY)
+                .map(page -> HomeLayoutPublishedResponseDto.builder()
+                        .pageKey(page.getPageKey())
+                        .layout(readLayout(page.getPublishedJson()))
+                        .publishedAt(page.getPublishedAt())
+                        .build())
+                .orElseGet(() -> HomeLayoutPublishedResponseDto.builder()
+                        .pageKey(PAGE_KEY)
+                        .layout(createDefaultLayout())
+                        .publishedAt(null)
+                        .build());
     }
 
     public HomeLayoutAdminResponseDto getAdminLayout() {
@@ -88,6 +97,7 @@ public class HomeLayoutService {
         return toAdminResponse(page);
     }
 
+    @CacheEvict(cacheNames = "homePublishedLayout", key = "'" + PAGE_KEY + "'")
     public HomeLayoutAdminResponseDto publish(User user) {
         HomeLayoutPage page = ensurePage();
         HomeLayoutContentDto strictLayout = sanitizeLayout(readLayout(page.getDraftJson()), true);

@@ -7,7 +7,12 @@ import lombok.*;
 @Setter
 @Getter
 @Entity
-@Table(name = "board_files")
+@Table(
+        name = "board_files",
+        indexes = {
+                @Index(name = "idx_board_files_board", columnList = "board_id")
+        }
+)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

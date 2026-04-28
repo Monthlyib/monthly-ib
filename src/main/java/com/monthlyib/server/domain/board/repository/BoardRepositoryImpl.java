@@ -17,7 +17,9 @@ import org.springframework.data.jpa.repository.support.QuerydslRepositorySupport
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Repository
 public class BoardRepositoryImpl extends QuerydslRepositorySupport implements BoardRepository{
@@ -58,15 +60,8 @@ public class BoardRepositoryImpl extends QuerydslRepositorySupport implements Bo
         List<BoardSimpleResponseDto> list = Optional.ofNullable(getQuerydsl())
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.DATA_ACCESS_ERROR))
                 .applyPagination(pageable, query)
-                .fetch()
-                .stream().peek(b ->{
-                    Long boardId = b.getBoardId();
-                    Long fileCount = boardFileJpaRepository.countByBoardId(boardId);
-                    Long replyCount = boardReplyJpaRepository.countByBoardId(boardId);
-                    b.setReplyCount(replyCount);
-                    b.setFileCount(fileCount);
-                }).toList()
-                ;
+                .fetch();
+        applyBoardCounts(list);
         return new PageImpl<>(list, pageable, query.fetchCount());
     }
 
@@ -86,15 +81,8 @@ public class BoardRepositoryImpl extends QuerydslRepositorySupport implements Bo
         List<BoardSimpleResponseDto> list = Optional.ofNullable(getQuerydsl())
                 .orElseThrow(() -> new ServiceLogicException(ErrorCode.DATA_ACCESS_ERROR))
                 .applyPagination(pageable, query)
-                .fetch()
-                .stream().peek(b ->{
-                    Long boardId = b.getBoardId();
-                    Long fileCount = boardFileJpaRepository.countByBoardId(boardId);
-                    Long replyCount = boardReplyJpaRepository.countByBoardId(boardId);
-                    b.setReplyCount(replyCount);
-                    b.setFileCount(fileCount);
-                }).toList()
-                ;
+                .fetch();
+        applyBoardCounts(list);
         return new PageImpl<>(list, pageable, query.fetchCount());
     }
 
@@ -168,5 +156,31 @@ public class BoardRepositoryImpl extends QuerydslRepositorySupport implements Bo
                         )
                 );
     }
-}
 
+    private void applyBoardCounts(List<BoardSimpleResponseDto> boards) {
+        List<Long> boardIds = boards.stream()
+                .map(BoardSimpleResponseDto::getBoardId)
+                .toList();
+        if (boardIds.isEmpty()) {
+            return;
+        }
+
+        Map<Long, Long> fileCounts = toCountMap(boardFileJpaRepository.countByBoardIdInGroupByBoardId(boardIds));
+        Map<Long, Long> replyCounts = toCountMap(boardReplyJpaRepository.countByBoardIdInGroupByBoardId(boardIds));
+
+        boards.forEach(board -> {
+            Long boardId = board.getBoardId();
+            board.setFileCount(fileCounts.getOrDefault(boardId, 0L));
+            board.setReplyCount(replyCounts.getOrDefault(boardId, 0L));
+        });
+    }
+
+    private Map<Long, Long> toCountMap(List<BoardCountProjection> counts) {
+        return counts.stream()
+                .collect(Collectors.toMap(
+                        BoardCountProjection::getBoardId,
+                        BoardCountProjection::getCount,
+                        (left, right) -> left
+                ));
+    }
+}

@@ -12,7 +12,12 @@ import java.util.Optional;
 @Setter
 @Getter
 @Entity
-@Table(name = "boards")
+@Table(
+        name = "boards",
+        indexes = {
+                @Index(name = "idx_boards_author_created", columnList = "author_id,create_at")
+        }
+)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

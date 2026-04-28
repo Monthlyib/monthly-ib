@@ -118,7 +118,7 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
             throw new ServiceLogicException(ErrorCode.SESSION_EXPIRED_BY_NEW_LOGIN);
         }
 
-        LocalDateTime refreshThreshold = LocalDateTime.now().minusMinutes(5);
+        LocalDateTime refreshThreshold = LocalDateTime.now().minusMinutes(30);
         if (user.getLastAccessAt() == null || user.getLastAccessAt().isBefore(refreshThreshold)) {
             user.touchLastAccessAt();
             userRepository.save(user);
