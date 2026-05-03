@@ -142,14 +142,20 @@ public class VideoApiController implements VideoApiControllerIfs{
 
     @Override
     @PostMapping("/api/video-reply")
-    public ResponseEntity<ResponseDto<?>> postVideoLessonsReply(VideoLessonsReplyPostDto requestDto, User user) {
+    public ResponseEntity<ResponseDto<?>> postVideoLessonsReply(
+            @RequestBody VideoLessonsReplyPostDto requestDto,
+            @com.monthlyib.server.annotation.UserSession User user
+    ) {
         VideoLessonsReplyResponseDto response = videoLessonsService.createVideoLessonsReply(requestDto, user);
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 
     @Override
     @PatchMapping("/api/video-reply")
-    public ResponseEntity<ResponseDto<?>> patchVideoLessonsReply(VideoLessonsReplyPatchDto requestDto, User user) {
+    public ResponseEntity<ResponseDto<?>> patchVideoLessonsReply(
+            @RequestBody VideoLessonsReplyPatchDto requestDto,
+            @com.monthlyib.server.annotation.UserSession User user
+    ) {
         VideoLessonsReplyResponseDto response = videoLessonsService.updateVideoLessonsReply(requestDto, user);
 
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
@@ -157,8 +163,11 @@ public class VideoApiController implements VideoApiControllerIfs{
 
     @Override
     @DeleteMapping("/api/video-reply/{videoLessonsReplyId}")
-    public ResponseEntity<ResponseDto<?>> deleteVideoReply(Long videoLessonsReplyId, User user) {
-        videoLessonsService.deleteVideoLessonsReply(videoLessonsReplyId);
+    public ResponseEntity<ResponseDto<?>> deleteVideoReply(
+            @PathVariable Long videoLessonsReplyId,
+            @com.monthlyib.server.annotation.UserSession User user
+    ) {
+        videoLessonsService.deleteVideoLessonsReply(videoLessonsReplyId, user);
         return ResponseEntity.ok().build();
     }
 

@@ -9,6 +9,8 @@ public interface VideoLessonsReplyJpaRepository extends JpaRepository<VideoLesso
 
     Page<VideoLessonsReply> findAllByVideoLessonsId(Long videoLessonsId, Pageable pageable);
 
+    boolean existsByVideoLessonsIdAndAuthorId(Long videoLessonsId, Long authorId);
+
     void deleteAllByVideoLessonsId(Long videoLessonId);
 
     long countAllByVideoLessonsId(Long videoLessonId);

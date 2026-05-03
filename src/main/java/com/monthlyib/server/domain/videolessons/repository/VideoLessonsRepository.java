@@ -33,6 +33,8 @@ public interface VideoLessonsRepository {
 
     Optional<VideoLessonsReply> findVideoReplyById(Long videoLessonsReplyId);
 
+    boolean existsVideoLessonsReply(Long videoLessonsId, Long authorId);
+
     VideoLessons save(VideoLessons videoLessons);
 
     VideoLessonsCategory save(VideoLessonsCategory videoLessonsCategory);

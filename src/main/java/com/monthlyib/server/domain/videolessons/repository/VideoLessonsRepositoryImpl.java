@@ -152,6 +152,11 @@ public class VideoLessonsRepositoryImpl extends QuerydslRepositorySupport implem
     }
 
     @Override
+    public boolean existsVideoLessonsReply(Long videoLessonsId, Long authorId) {
+        return videoLessonsReplyJpaRepository.existsByVideoLessonsIdAndAuthorId(videoLessonsId, authorId);
+    }
+
+    @Override
     public VideoLessons save(VideoLessons videoLessons) {
         return videoLessonsJpaRepository.save(videoLessons);
     }

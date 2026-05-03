@@ -50,7 +50,7 @@ public class VideoLessonsReply extends Auditable {
     public static VideoLessonsReply create(VideoLessonsReplyPostDto dto, User user) {
         return VideoLessonsReply.builder()
                 .videoLessonsId(dto.getVideoLessonsId())
-                .authorId(dto.getAuthorId())
+                .authorId(user.getUserId())
                 .authorUsername(user.getUsername())
                 .authorNickname(user.getNickName())
                 .content(dto.getContent())

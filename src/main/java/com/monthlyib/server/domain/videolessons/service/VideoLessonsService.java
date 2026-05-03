@@ -153,26 +153,39 @@ public class VideoLessonsService {
     }
 
     public VideoLessonsReplyResponseDto createVideoLessonsReply(VideoLessonsReplyPostDto dto, User user) {
+        verifyReviewUser(user);
+        validateVideoLessonsReply(dto.getContent(), dto.getStar());
         Long videoLessonsId = dto.getVideoLessonsId();
         VideoLessons findVideo = verifyVideoLessons(videoLessonsId);
+        if (videoLessonsRepository.existsVideoLessonsReply(videoLessonsId, user.getUserId())) {
+            throw new ServiceLogicException(ErrorCode.VIDEO_LESSONS_REPLY_ALREADY_EXISTS);
+        }
         VideoLessonsReply newReply = VideoLessonsReply.create(dto, user);
         VideoLessonsReply saveReply = videoLessonsRepository.save(newReply);
-        findVideo.setReplyCount(videoLessonsRepository.countReply(videoLessonsId));
-        findVideo.setTotalStar(findVideo.getTotalStar()+saveReply.getStar());
-        findVideo.setStarAverage(findVideo.getTotalStar()/findVideo.getReplyCount());
+        applyReviewSummary(
+                findVideo,
+                findVideo.getTotalStar() + saveReply.getStar(),
+                videoLessonsRepository.countReply(videoLessonsId)
+        );
         videoLessonsRepository.save(findVideo);
         return VideoLessonsReplyResponseDto.of(saveReply);
     }
 
     public VideoLessonsReplyResponseDto updateVideoLessonsReply(VideoLessonsReplyPatchDto dto, User user) {
+        verifyReviewUser(user);
+        validateVideoLessonsReply(dto.getContent(), dto.getStar());
         Long videoLessonsId = dto.getVideoLessonsId();
         VideoLessons findVideo = verifyVideoLessons(videoLessonsId);
         VideoLessonsReply findReply = verifyVideoLessonsReply(dto.getVideoLessonsReplyId());
+        verifyReviewOwnerOrAdmin(findReply, user);
+        double previousStar = findReply.getStar();
         findReply.update(dto);
         VideoLessonsReply saveReply = videoLessonsRepository.save(findReply);
-        findVideo.setTotalStar(findVideo.getTotalStar()-findReply.getStar());
-        findVideo.setTotalStar(findVideo.getTotalStar()+saveReply.getStar());
-        findVideo.setStarAverage(findVideo.getTotalStar()/findVideo.getReplyCount());
+        applyReviewSummary(
+                findVideo,
+                findVideo.getTotalStar() - previousStar + saveReply.getStar(),
+                videoLessonsRepository.countReply(videoLessonsId)
+        );
         videoLessonsRepository.save(findVideo);
         return VideoLessonsReplyResponseDto.of(saveReply);
     }
@@ -181,13 +194,19 @@ public class VideoLessonsService {
         videoLessonsRepository.deleteVideoLessons(verifyVideoLessons(videoLessonsId));
     }
 
-    public void deleteVideoLessonsReply(Long videoLessonsReplyId) {
+    public void deleteVideoLessonsReply(Long videoLessonsReplyId, User user) {
+        verifyReviewUser(user);
         VideoLessonsReply findReply = verifyVideoLessonsReply(videoLessonsReplyId);
+        verifyReviewOwnerOrAdmin(findReply, user);
         VideoLessons findVideo = verifyVideoLessons(findReply.getVideoLessonsId());
-        findVideo.setTotalStar(findVideo.getTotalStar()-findReply.getStar());
-        findVideo.setStarAverage(findVideo.getTotalStar()/findVideo.getReplyCount());
-        videoLessonsRepository.save(findVideo);
+        double nextTotalStar = findVideo.getTotalStar() - findReply.getStar();
         videoLessonsRepository.deleteVideoLessonsReply(videoLessonsReplyId);
+        applyReviewSummary(
+                findVideo,
+                nextTotalStar,
+                videoLessonsRepository.countReply(findVideo.getVideoLessonsId())
+        );
+        videoLessonsRepository.save(findVideo);
     }
 
     public VideoLessonsReplyResponseDto voteReply(Long videoLessonsReplyId, Long userId) {
@@ -456,6 +475,35 @@ public class VideoLessonsService {
     private void deleteMainChapter(Long mainChapterId) {
         videoLessonsRepository.deleteAllVideoLessonsSubChapterByMainChapterId(mainChapterId);
         videoLessonsRepository.deleteVideoLessonsMainChapter(mainChapterId);
+    }
+
+    private void verifyReviewUser(User user) {
+        if (user == null || user.getUserId() == null) {
+            throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+        }
+    }
+
+    private void verifyReviewOwnerOrAdmin(VideoLessonsReply reply, User user) {
+        if (user.getAuthority() == Authority.ADMIN || Objects.equals(reply.getAuthorId(), user.getUserId())) {
+            return;
+        }
+        throw new ServiceLogicException(ErrorCode.ACCESS_DENIED);
+    }
+
+    private void validateVideoLessonsReply(String content, double star) {
+        if (!StringUtils.hasText(content)) {
+            throw new ServiceLogicException(ErrorCode.VIDEO_LESSONS_REPLY_CONTENT_REQUIRED);
+        }
+        if (star < 1D || star > 5D) {
+            throw new ServiceLogicException(ErrorCode.VIDEO_LESSONS_REPLY_STAR_INVALID);
+        }
+    }
+
+    private void applyReviewSummary(VideoLessons videoLessons, double totalStar, long replyCount) {
+        double safeTotalStar = Math.max(0D, totalStar);
+        videoLessons.setTotalStar(safeTotalStar);
+        videoLessons.setReplyCount(Math.max(0L, replyCount));
+        videoLessons.setStarAverage(replyCount <= 0 ? 0D : safeTotalStar / replyCount);
     }
 
     private void verifyAdmin(User user) {
