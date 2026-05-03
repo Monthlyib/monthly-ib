@@ -152,6 +152,16 @@ public class VideoLessonsRepositoryImpl extends QuerydslRepositorySupport implem
     }
 
     @Override
+    public List<VideoLessonsReply> findAllVideoLessonsReplies() {
+        return videoLessonsReplyJpaRepository.findAll();
+    }
+
+    @Override
+    public List<VideoLessonsReply> findAllVideoLessonsRepliesByVideoLessonsId(Long videoLessonsId) {
+        return videoLessonsReplyJpaRepository.findAllByVideoLessonsId(videoLessonsId);
+    }
+
+    @Override
     public boolean existsVideoLessonsReply(Long videoLessonsId, Long authorId) {
         return videoLessonsReplyJpaRepository.existsByVideoLessonsIdAndAuthorId(videoLessonsId, authorId);
     }

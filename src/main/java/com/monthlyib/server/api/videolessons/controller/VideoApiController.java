@@ -178,6 +178,14 @@ public class VideoApiController implements VideoApiControllerIfs{
         return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
     }
 
+    @PostMapping("/api/admin/video-reply/deduplicate")
+    public ResponseEntity<ResponseDto<?>> deduplicateVideoLessonsReviews(
+            @com.monthlyib.server.annotation.UserSession User user
+    ) {
+        VideoLessonsReviewDeduplicateResponseDto response = videoLessonsService.deduplicateVideoLessonsReviews(user);
+        return ResponseEntity.ok(ResponseDto.of(response, Result.ok()));
+    }
+
     @Override
     @GetMapping("/open-api/video-category")
     public ResponseEntity<ResponseDto<?>> getVideoCategory() {

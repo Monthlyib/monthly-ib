@@ -23,11 +23,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -221,6 +224,50 @@ public class VideoLessonsService {
         findReply.setVoter(voter);
         VideoLessonsReply saveReply = videoLessonsRepository.save(findReply);
         return VideoLessonsReplyResponseDto.of(saveReply);
+    }
+
+    public VideoLessonsReviewDeduplicateResponseDto deduplicateVideoLessonsReviews(User user) {
+        verifyAdmin(user);
+        return deduplicateVideoLessonsReviews();
+    }
+
+    public VideoLessonsReviewDeduplicateResponseDto deduplicateVideoLessonsReviews() {
+        List<VideoLessonsReply> allReplies = videoLessonsRepository.findAllVideoLessonsReplies();
+        Map<String, List<VideoLessonsReply>> repliesByVideoAndAuthor = allReplies.stream()
+                .filter(reply -> reply.getVideoLessonsId() != null && reply.getAuthorId() != null)
+                .collect(Collectors.groupingBy(reply -> reply.getVideoLessonsId() + ":" + reply.getAuthorId()));
+
+        int duplicateGroupCount = 0;
+        int deletedReviewCount = 0;
+        Set<Long> affectedVideoLessonsIds = new HashSet<>();
+
+        for (List<VideoLessonsReply> duplicateGroup : repliesByVideoAndAuthor.values()) {
+            if (duplicateGroup.size() <= 1) {
+                continue;
+            }
+
+            duplicateGroupCount += 1;
+            VideoLessonsReply canonicalReply = duplicateGroup.stream()
+                    .max(Comparator
+                            .comparing(this::reviewLastTouchedAt)
+                            .thenComparing(reply -> Optional.ofNullable(reply.getVideoLessonsReplyId()).orElse(0L)))
+                    .orElseThrow(() -> new ServiceLogicException(ErrorCode.DATA_ACCESS_ERROR));
+
+            affectedVideoLessonsIds.add(canonicalReply.getVideoLessonsId());
+            duplicateGroup.stream()
+                    .filter(reply -> !Objects.equals(reply.getVideoLessonsReplyId(), canonicalReply.getVideoLessonsReplyId()))
+                    .forEach(reply -> videoLessonsRepository.deleteVideoLessonsReply(reply.getVideoLessonsReplyId()));
+            deletedReviewCount += duplicateGroup.size() - 1;
+        }
+
+        affectedVideoLessonsIds.forEach(this::recalculateReviewSummary);
+
+        return VideoLessonsReviewDeduplicateResponseDto.builder()
+                .scannedReviewCount(allReplies.size())
+                .duplicateGroupCount(duplicateGroupCount)
+                .deletedReviewCount(deletedReviewCount)
+                .updatedVideoLessonsCount(affectedVideoLessonsIds.size())
+                .build();
     }
 
     public VideoCategoryDetailResponseDto findAllCategory() {
@@ -504,6 +551,26 @@ public class VideoLessonsService {
         videoLessons.setTotalStar(safeTotalStar);
         videoLessons.setReplyCount(Math.max(0L, replyCount));
         videoLessons.setStarAverage(replyCount <= 0 ? 0D : safeTotalStar / replyCount);
+    }
+
+    private LocalDateTime reviewLastTouchedAt(VideoLessonsReply reply) {
+        if (reply.getUpdateAt() != null) {
+            return reply.getUpdateAt();
+        }
+        if (reply.getCreateAt() != null) {
+            return reply.getCreateAt();
+        }
+        return LocalDateTime.MIN;
+    }
+
+    private void recalculateReviewSummary(Long videoLessonsId) {
+        VideoLessons videoLessons = verifyVideoLessons(videoLessonsId);
+        List<VideoLessonsReply> replies = videoLessonsRepository.findAllVideoLessonsRepliesByVideoLessonsId(videoLessonsId);
+        double totalStar = replies.stream()
+                .mapToDouble(VideoLessonsReply::getStar)
+                .sum();
+        applyReviewSummary(videoLessons, totalStar, replies.size());
+        videoLessonsRepository.save(videoLessons);
     }
 
     private void verifyAdmin(User user) {
