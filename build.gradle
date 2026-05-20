@@ -70,6 +70,8 @@ dependencies {
 
 	implementation 'org.jsoup:jsoup:1.18.1'
 	implementation 'com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10'
+	implementation group: 'com.microsoft.cognitiveservices.speech', name: 'client-sdk', version: '1.48.1', ext: 'jar'
+	implementation 'org.apache.poi:poi-ooxml:5.2.5'
 
 }
 

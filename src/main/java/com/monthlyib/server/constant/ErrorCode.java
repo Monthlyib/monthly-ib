@@ -58,6 +58,10 @@ public enum ErrorCode {
     VIDEO_LESSONS_REPLY_ALREADY_EXISTS(400, "이미 리뷰를 작성했습니다.", 14050),
     VIDEO_LESSONS_REPLY_CONTENT_REQUIRED(400, "리뷰 내용을 입력해주세요.", 14051),
     VIDEO_LESSONS_REPLY_STAR_INVALID(400, "리뷰 평점은 1점 이상 5점 이하로 선택해주세요.", 14052),
+    AI_IO_AUDIO_REQUIRED(400, "녹음 파일이 필요합니다.", 14053),
+    AI_IO_SCRIPT_REQUIRED(400, "대본 파일이 필요합니다.", 14054),
+    AI_IO_SCRIPT_UNSUPPORTED(400, "대본은 txt, pdf, docx 파일만 지원합니다. doc 파일은 docx로 변환해주세요.", 14055),
+    AI_IO_SCRIPT_EMPTY(400, "대본에서 읽을 수 있는 텍스트를 찾지 못했습니다.", 14056),
 
 
 
@@ -71,7 +75,10 @@ public enum ErrorCode {
     MAIL_SEND_FAILED(500, "MAIL_SEND_FAILED.", 15007),
     VERIFY_EMAIL_SEND_FAILED(500, "인증 메일 발송에 실패했습니다. 다시 시도해주세요.", 15008),
     MAIL_ATTACHMENT_READ_FAILED(500, "MAIL_ATTACHMENT_READ_FAILED.", 15009),
-    GOOGLE_CALENDAR_SYNC_FAILED(500, "GOOGLE_CALENDAR_SYNC_FAILED.", 15010);
+    GOOGLE_CALENDAR_SYNC_FAILED(500, "GOOGLE_CALENDAR_SYNC_FAILED.", 15010),
+    AZURE_SPEECH_NOT_CONFIGURED(500, "Azure Speech 설정이 필요합니다.", 15011),
+    AZURE_SPEECH_ANALYSIS_FAILED(500, "음성 분석에 실패했습니다. 녹음 파일과 대본을 확인해주세요.", 15012),
+    AI_FEEDBACK_GENERATION_FAILED(500, "음성 분석은 완료했지만 AI 피드백 생성에 실패했습니다.", 15013);
 
     @Getter
     private final int status;

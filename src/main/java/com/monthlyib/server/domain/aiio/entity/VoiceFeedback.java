@@ -26,6 +26,26 @@ public class VoiceFeedback extends Auditable {
     @Column(columnDefinition = "LONGTEXT")
     private String feedbackContent;
 
+    @Column(columnDefinition = "LONGTEXT")
+    private String transcript;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String assessmentRawJson;
+
+    private Double pronunciationScore;
+
+    private Double accuracyScore;
+
+    private Double fluencyScore;
+
+    private Double completenessScore;
+
+    private Double prosodyScore;
+
+    private Double speakingRateWpm;
+
+    private Integer durationSeconds;
+
     private String iocTopic;
 
     private String scriptFilePath;
@@ -51,5 +71,27 @@ public class VoiceFeedback extends Auditable {
 
     public void setFeedbackContent(String content) {
         this.feedbackContent = content;
+    }
+
+    public void setSpeechAnalysis(
+            String transcript,
+            String assessmentRawJson,
+            Double pronunciationScore,
+            Double accuracyScore,
+            Double fluencyScore,
+            Double completenessScore,
+            Double prosodyScore,
+            Double speakingRateWpm,
+            Integer durationSeconds
+    ) {
+        this.transcript = transcript;
+        this.assessmentRawJson = assessmentRawJson;
+        this.pronunciationScore = pronunciationScore;
+        this.accuracyScore = accuracyScore;
+        this.fluencyScore = fluencyScore;
+        this.completenessScore = completenessScore;
+        this.prosodyScore = prosodyScore;
+        this.speakingRateWpm = speakingRateWpm;
+        this.durationSeconds = durationSeconds;
     }
 }
