@@ -120,9 +120,3 @@ finance:
   exchange:
     base-url: https://api.frankfurter.app
     fallback-usd-krw-rate: ${FINANCE_EXCHANGE_FALLBACK_USD_KRW_RATE:1400}
-
-azure:
-  speech:
-    key: ${AZURE_SPEECH_KEY:}
-    region: ${AZURE_SPEECH_REGION:}
-    language: ${AZURE_SPEECH_LANGUAGE:en-US}

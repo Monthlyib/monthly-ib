@@ -76,9 +76,8 @@ public enum ErrorCode {
     VERIFY_EMAIL_SEND_FAILED(500, "인증 메일 발송에 실패했습니다. 다시 시도해주세요.", 15008),
     MAIL_ATTACHMENT_READ_FAILED(500, "MAIL_ATTACHMENT_READ_FAILED.", 15009),
     GOOGLE_CALENDAR_SYNC_FAILED(500, "GOOGLE_CALENDAR_SYNC_FAILED.", 15010),
-    AZURE_SPEECH_NOT_CONFIGURED(500, "Azure Speech 설정이 필요합니다.", 15011),
-    AZURE_SPEECH_ANALYSIS_FAILED(500, "음성 분석에 실패했습니다. 녹음 파일과 대본을 확인해주세요.", 15012),
-    AI_FEEDBACK_GENERATION_FAILED(500, "음성 분석은 완료했지만 AI 피드백 생성에 실패했습니다.", 15013);
+    OPENAI_TRANSCRIPTION_FAILED(500, "녹음 파일을 텍스트로 변환하지 못했습니다. 녹음 파일을 확인해주세요.", 15011),
+    AI_FEEDBACK_GENERATION_FAILED(500, "음성 변환은 완료했지만 AI 피드백 생성에 실패했습니다.", 15012);
 
     @Getter
     private final int status;

@@ -12,8 +12,19 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 @Service
@@ -175,6 +186,56 @@ public class OpenAiAssistantService {
             log.error("Chat completion failed", e);
             throw new RuntimeException("Chat completion failed: " + e.getMessage(), e);
         }
+    }
+
+    public String transcribeAudio(MultipartFile audioFile) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(apiKey);
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("model", "gpt-4o-mini-transcribe");
+            body.add("language", "en");
+            body.add("response_format", "json");
+            body.add("file", new HttpEntity<>(toAudioResource(audioFile), buildAudioHeaders(audioFile)));
+
+            ResponseEntity<String> response = new RestTemplate().postForEntity(
+                    BASE_URL + "/v1/audio/transcriptions",
+                    new HttpEntity<>(body, headers),
+                    String.class
+            );
+
+            JsonObject json = gson.fromJson(response.getBody(), JsonObject.class);
+            return json != null && json.has("text") && !json.get("text").isJsonNull()
+                    ? json.get("text").getAsString()
+                    : "";
+        } catch (Exception e) {
+            log.error("Audio transcription failed", e);
+            throw new RuntimeException("Audio transcription failed: " + e.getMessage(), e);
+        }
+    }
+
+    private ByteArrayResource toAudioResource(MultipartFile audioFile) throws IOException {
+        String filename = StringUtils.hasText(audioFile.getOriginalFilename())
+                ? audioFile.getOriginalFilename()
+                : "io-recording.wav";
+        return new ByteArrayResource(audioFile.getBytes()) {
+            @Override
+            public String getFilename() {
+                return filename;
+            }
+        };
+    }
+
+    private HttpHeaders buildAudioHeaders(MultipartFile audioFile) {
+        HttpHeaders fileHeaders = new HttpHeaders();
+        if (StringUtils.hasText(audioFile.getContentType())) {
+            fileHeaders.setContentType(MediaType.parseMediaType(audioFile.getContentType()));
+        } else {
+            fileHeaders.setContentType(MediaType.parseMediaType("audio/wav"));
+        }
+        return fileHeaders;
     }
 
     private void applyHeaders(HttpPost post) {
