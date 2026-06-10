@@ -6,6 +6,7 @@ import com.monthlyib.server.auth.util.CustomAuthorityUtils;
 import com.monthlyib.server.constant.Authority;
 import com.monthlyib.server.constant.ErrorCode;
 import com.monthlyib.server.constant.UserStatus;
+import com.monthlyib.server.domain.accessanalytics.service.UserAccessAnalyticsService;
 import com.monthlyib.server.domain.user.entity.User;
 import com.monthlyib.server.domain.user.repository.UserRepository;
 import com.monthlyib.server.exception.ServiceLogicException;
@@ -28,6 +29,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -36,11 +38,15 @@ import java.util.Objects;
 @Slf4j
 public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
+    private static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
+
     private final JwtTokenizer jwtTokenizer;
 
     private final CustomAuthorityUtils authorityUtils;
 
     private final UserRepository userRepository;
+
+    private final UserAccessAnalyticsService userAccessAnalyticsService;
 
     @Override
     protected void doFilterInternal(
@@ -118,10 +124,21 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
             throw new ServiceLogicException(ErrorCode.SESSION_EXPIRED_BY_NEW_LOGIN);
         }
 
-        LocalDateTime refreshThreshold = LocalDateTime.now().minusMinutes(30);
-        if (user.getLastAccessAt() == null || user.getLastAccessAt().isBefore(refreshThreshold)) {
-            user.touchLastAccessAt();
+        LocalDateTime now = LocalDateTime.now(SERVICE_ZONE);
+        LocalDateTime refreshThreshold = now.minusMinutes(30);
+        boolean dateChanged = user.getLastAccessAt() != null
+                && !user.getLastAccessAt().toLocalDate().equals(now.toLocalDate());
+        boolean shouldRecordAccess = user.getAuthority() == Authority.USER
+                && (user.getLastAccessAt() == null
+                || user.getLastAccessAt().isBefore(refreshThreshold)
+                || dateChanged);
+
+        if (user.getLastAccessAt() == null || user.getLastAccessAt().isBefore(refreshThreshold) || dateChanged) {
+            user.touchLastAccessAt(now);
             userRepository.save(user);
+        }
+        if (shouldRecordAccess) {
+            userAccessAnalyticsService.recordAccess(user, now);
         }
 
         return user;

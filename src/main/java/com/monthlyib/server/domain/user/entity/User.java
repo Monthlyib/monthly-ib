@@ -226,4 +226,8 @@ public class User extends Auditable {
         this.lastAccessAt = LocalDateTime.now();
     }
 
+    public void touchLastAccessAt(LocalDateTime accessAt) {
+        this.lastAccessAt = accessAt == null ? LocalDateTime.now() : accessAt;
+    }
+
 }

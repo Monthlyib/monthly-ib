@@ -139,17 +139,21 @@ public class MonthlyIbPdfRenderService {
 
     public byte[] render(MonthlyIb monthlyIb) {
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-            Path tempFontPath = copyFontToTempFile();
+            Path tempFontPath = copyFontToTempFileIfPresent();
             try {
                 PdfRendererBuilder builder = new PdfRendererBuilder();
                 builder.useFastMode();
-                builder.useFont(tempFontPath.toFile(), "Nanum Gothic");
+                if (tempFontPath != null) {
+                    builder.useFont(tempFontPath.toFile(), "Nanum Gothic");
+                }
                 builder.withW3cDocument(new W3CDom().fromJsoup(buildHtmlDocument(monthlyIb)), null);
                 builder.toStream(outputStream);
                 builder.run();
                 return outputStream.toByteArray();
             } finally {
-                Files.deleteIfExists(tempFontPath);
+                if (tempFontPath != null) {
+                    Files.deleteIfExists(tempFontPath);
+                }
             }
         } catch (Exception exception) {
             log.error("Failed to render Monthly IB pdf", exception);
@@ -157,8 +161,12 @@ public class MonthlyIbPdfRenderService {
         }
     }
 
-    private Path copyFontToTempFile() throws IOException {
+    private Path copyFontToTempFileIfPresent() throws IOException {
         ClassPathResource fontResource = new ClassPathResource(FONT_RESOURCE_PATH);
+        if (!fontResource.exists()) {
+            log.warn("Monthly IB PDF font resource not found: {}. Falling back to renderer default font.", FONT_RESOURCE_PATH);
+            return null;
+        }
         Path tempFile = Files.createTempFile("monthly-ib-font-", ".ttf");
         try (InputStream inputStream = fontResource.getInputStream()) {
             Files.copy(inputStream, tempFile, StandardCopyOption.REPLACE_EXISTING);
